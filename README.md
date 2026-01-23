@@ -12,19 +12,10 @@ A simple, self-hosted pastebin service with S3-compatible storage backend.
 - Store and share text snippets with unique URLs
 - Configurable time-to-live (TTL) for pastes
 - Automatic cleanup of expired pastes
-- Content-addressable storage using SHA256 checksums
-- S3-compatible storage backend (AWS S3, MinIO, etc.)
+- S3 as the storage backend (AWS S3, MinIO, etc.)
 - Data integrity verification on retrieval
 - Copy to clipboard functionality
 - Raw paste view
-
-## Security Features
-
-- CSRF protection using double-submit cookie pattern
-- Request body size limits to prevent memory exhaustion
-- Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy)
-- Input validation for all URL parameters
-- Configurable secure cookies for HTTPS deployments
 
 ## Configuration
 
@@ -47,32 +38,9 @@ Configuration is done via environment variables:
 | `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
 
-## Installation
+## Get started
 
-### From Package (Recommended for Linux)
-
-Download the latest `.deb` or `.rpm` package from the [releases page](https://github.com/espebra/pastebin/releases).
-
-```bash
-# Debian/Ubuntu
-sudo dpkg -i pastebin_1.0.0_amd64.deb
-
-# RHEL/CentOS/Fedora
-sudo rpm -i pastebin-1.0.0.x86_64.rpm
-```
-
-After installation, configure `/etc/default/pastebin` and start the service:
-
-```bash
-sudo systemctl enable pastebin
-sudo systemctl start pastebin
-```
-
-### From Binary
-
-Download the binary for your platform from the [releases page](https://github.com/espebra/pastebin/releases).
-
-### From Container Image
+### From container image
 
 Container images are available from GitHub Container Registry:
 
@@ -98,15 +66,6 @@ docker run -p 8080:8080 \
   ghcr.io/espebra/pastebin:latest
 ```
 
-## Running
-
-### Version Information
-
-```bash
-./pastebin --version
-# pastebin v1.0.0 (commit: abc1234)
-```
-
 ### With Docker Compose
 
 Create a `docker-compose.yml` file:
@@ -119,10 +78,8 @@ services:
       - "8080:8080"
     environment:
       - PASTEBIN_HOST=0.0.0.0
-      - PASTEBIN_PORT=8080
       - PASTEBIN_S3_BUCKET=pastebin
-      - PASTEBIN_S3_ENDPOINT=s3:9000
-      - PASTEBIN_S3_REGION=us-east-1
+      - PASTEBIN_S3_ENDPOINT=s3:5553
       - PASTEBIN_S3_USE_SSL=false
       - PASTEBIN_S3_ACCESS_KEY=accesskey
       - PASTEBIN_S3_SECRET_KEY=secretkey
@@ -130,7 +87,7 @@ services:
       - s3
 
   s3:
-    image: ghcr.io/espebra/s3s3:latest
+    image: ghcr.io/espebra/stupid-simple-s3:latest
     environment:
       - STUPID_BUCKET_NAME: pastebin
       - STUPID_RW_ACCESS_KEY: accesskey
@@ -148,7 +105,30 @@ Then run:
 docker-compose up
 ```
 
-The pastebin will be available at http://localhost:8080.
+The pastebin service will be available at http://localhost:8080.
+
+### From package
+
+Download the latest `.deb` or `.rpm` package from the [releases page](https://github.com/espebra/pastebin/releases).
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i pastebin_1.0.0_amd64.deb
+
+# RHEL/CentOS/Fedora
+sudo rpm -i pastebin-1.0.0.x86_64.rpm
+```
+
+After installation, configure `/etc/default/pastebin` and start the service:
+
+```bash
+sudo systemctl enable pastebin
+sudo systemctl start pastebin
+```
+
+### From binary
+
+Download the binary for your platform from the [releases page](https://github.com/espebra/pastebin/releases).
 
 ### Manually
 
@@ -164,6 +144,13 @@ export PASTEBIN_S3_ACCESS_KEY=minioadmin
 export PASTEBIN_S3_SECRET_KEY=minioadmin
 
 ./pastebin
+```
+
+## Check current version
+
+```bash
+./pastebin --version
+# pastebin v1.0.0 (commit: abc1234)
 ```
 
 ## API Endpoints

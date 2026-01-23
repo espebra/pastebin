@@ -7,18 +7,18 @@ import (
 )
 
 func TestLoad_RequiredS3Bucket(t *testing.T) {
-	// Clear any existing S3_BUCKET
-	os.Unsetenv("S3_BUCKET")
+	// Clear any existing PASTEBIN_S3_BUCKET
+	os.Unsetenv("PASTEBIN_S3_BUCKET")
 
 	_, err := Load()
 	if err == nil {
-		t.Error("expected error when S3_BUCKET is not set")
+		t.Error("expected error when PASTEBIN_S3_BUCKET is not set")
 	}
 }
 
 func TestLoad_Defaults(t *testing.T) {
-	os.Setenv("S3_BUCKET", "test-bucket")
-	defer os.Unsetenv("S3_BUCKET")
+	os.Setenv("PASTEBIN_S3_BUCKET", "test-bucket")
+	defer os.Unsetenv("PASTEBIN_S3_BUCKET")
 
 	cfg, err := Load()
 	if err != nil {
@@ -64,16 +64,16 @@ func TestLoad_Defaults(t *testing.T) {
 
 func TestLoad_CustomValues(t *testing.T) {
 	envVars := map[string]string{
-		"S3_BUCKET":        "my-bucket",
-		"PASTEBIN_HOST":    "0.0.0.0",
-		"PASTEBIN_PORT":    "9000",
-		"S3_ENDPOINT":      "minio.local",
-		"S3_REGION":        "eu-west-1",
-		"S3_USE_SSL":       "false",
-		"CLEANUP_INTERVAL": "30m",
-		"MAX_PASTE_SIZE":   "2097152",
-		"DEFAULT_TTL":      "48h",
-		"SECURE_COOKIES":   "true",
+		"PASTEBIN_S3_BUCKET":        "my-bucket",
+		"PASTEBIN_HOST":             "0.0.0.0",
+		"PASTEBIN_PORT":             "9000",
+		"PASTEBIN_S3_ENDPOINT":      "minio.local",
+		"PASTEBIN_S3_REGION":        "eu-west-1",
+		"PASTEBIN_S3_USE_SSL":       "false",
+		"PASTEBIN_CLEANUP_INTERVAL": "30m",
+		"PASTEBIN_MAX_PASTE_SIZE":   "2097152",
+		"PASTEBIN_DEFAULT_TTL":      "48h",
+		"PASTEBIN_SECURE_COOKIES":   "true",
 	}
 
 	for k, v := range envVars {

@@ -28,22 +28,22 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Host:            getEnv("PASTEBIN_HOST", "127.0.0.1"),
 		Port:            getEnvInt("PASTEBIN_PORT", 8080),
-		S3Endpoint:      getEnv("S3_ENDPOINT", "s3.amazonaws.com"),
-		S3Region:        getEnv("S3_REGION", "us-east-1"),
-		S3Bucket:        os.Getenv("S3_BUCKET"),
-		S3UseSSL:        getEnvBool("S3_USE_SSL", true),
-		AWSAccessKey:    os.Getenv("AWS_ACCESS_KEY_ID"),
-		AWSSecretKey:    os.Getenv("AWS_SECRET_ACCESS_KEY"),
-		CleanupInterval: getEnvDuration("CLEANUP_INTERVAL", time.Hour),
-		MaxPasteSize:    getEnvInt64("MAX_PASTE_SIZE", 1024*1024), // 1MB
-		DefaultTTL:      getEnvDuration("DEFAULT_TTL", 365*24*time.Hour),
-		LogFormat:       getEnv("LOG_FORMAT", "text"),
-		LogLevel:        getEnv("LOG_LEVEL", "info"),
-		SecureCookies:   getEnvBool("SECURE_COOKIES", false),
+		S3Endpoint:      getEnv("PASTEBIN_S3_ENDPOINT", "s3.amazonaws.com"),
+		S3Region:        getEnv("PASTEBIN_S3_REGION", "us-east-1"),
+		S3Bucket:        os.Getenv("PASTEBIN_S3_BUCKET"),
+		S3UseSSL:        getEnvBool("PASTEBIN_S3_USE_SSL", true),
+		AWSAccessKey:    os.Getenv("PASTEBIN_S3_ACCESS_KEY"),
+		AWSSecretKey:    os.Getenv("PASTEBIN_S3_SECRET_KEY"),
+		CleanupInterval: getEnvDuration("PASTEBIN_CLEANUP_INTERVAL", time.Hour),
+		MaxPasteSize:    getEnvInt64("PASTEBIN_MAX_PASTE_SIZE", 1024*1024), // 1MB
+		DefaultTTL:      getEnvDuration("PASTEBIN_DEFAULT_TTL", 365*24*time.Hour),
+		LogFormat:       getEnv("PASTEBIN_LOG_FORMAT", "text"),
+		LogLevel:        getEnv("PASTEBIN_LOG_LEVEL", "info"),
+		SecureCookies:   getEnvBool("PASTEBIN_SECURE_COOKIES", false),
 	}
 
 	if cfg.S3Bucket == "" {
-		return nil, fmt.Errorf("S3_BUCKET environment variable is required")
+		return nil, fmt.Errorf("PASTEBIN_S3_BUCKET environment variable is required")
 	}
 
 	return cfg, nil

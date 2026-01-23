@@ -28,20 +28,20 @@ Configuration is done via environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `S3_BUCKET` | S3 bucket name (required) | - |
-| `S3_ENDPOINT` | S3 endpoint URL | `s3.amazonaws.com` |
-| `S3_REGION` | S3 region | `us-east-1` |
-| `S3_USE_SSL` | Use HTTPS for S3 | `true` |
-| `AWS_ACCESS_KEY_ID` | AWS access key | - |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key | - |
+| `PASTEBIN_S3_BUCKET` | S3 bucket name (required) | - |
+| `PASTEBIN_S3_ENDPOINT` | S3 endpoint URL | `s3.amazonaws.com` |
+| `PASTEBIN_S3_REGION` | S3 region | `us-east-1` |
+| `PASTEBIN_S3_USE_SSL` | Use HTTPS for S3 | `true` |
+| `PASTEBIN_S3_ACCESS_KEY` | S3 access key | - |
+| `PASTEBIN_S3_SECRET_KEY` | S3 secret key | - |
 | `PASTEBIN_HOST` | Listen host | `127.0.0.1` |
 | `PASTEBIN_PORT` | Listen port | `8080` |
-| `MAX_PASTE_SIZE` | Maximum paste size in bytes | `1048576` (1MB) |
-| `DEFAULT_TTL` | Default paste TTL | `8760h` (1 year) |
-| `CLEANUP_INTERVAL` | Interval between cleanup runs | `1h` |
-| `LOG_FORMAT` | Log format (`text` or `json`) | `text` |
-| `LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-| `SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
+| `PASTEBIN_MAX_PASTE_SIZE` | Maximum paste size in bytes | `1048576` (1MB) |
+| `PASTEBIN_DEFAULT_TTL` | Default paste TTL | `8760h` (1 year) |
+| `PASTEBIN_CLEANUP_INTERVAL` | Interval between cleanup runs | `1h` |
+| `PASTEBIN_LOG_FORMAT` | Log format (`text` or `json`) | `text` |
+| `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
+| `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
 
 ## Installation
 
@@ -68,6 +68,32 @@ sudo systemctl start pastebin
 
 Download the binary for your platform from the [releases page](https://github.com/espebra/pastebin/releases).
 
+### From Container Image
+
+Container images are available from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/espebra/pastebin:latest
+```
+
+Available tags:
+- `latest` - Latest release
+- `vX.Y.Z` - Specific version (e.g., `v1.0.0`)
+- `X.Y` - Minor version (e.g., `1.0`)
+- `X` - Major version (e.g., `1`)
+
+Run with:
+
+```bash
+docker run -p 8080:8080 \
+  -e PASTEBIN_HOST=0.0.0.0 \
+  -e PASTEBIN_S3_BUCKET=pastebin \
+  -e PASTEBIN_S3_ENDPOINT=your-s3-endpoint:9000 \
+  -e PASTEBIN_S3_ACCESS_KEY=your-access-key \
+  -e PASTEBIN_S3_SECRET_KEY=your-secret-key \
+  ghcr.io/espebra/pastebin:latest
+```
+
 ## Running
 
 ### Version Information
@@ -90,12 +116,12 @@ services:
     environment:
       - PASTEBIN_HOST=0.0.0.0
       - PASTEBIN_PORT=8080
-      - S3_BUCKET=pastebin
-      - S3_ENDPOINT=s3:9000
-      - S3_REGION=us-east-1
-      - S3_USE_SSL=false
-      - AWS_ACCESS_KEY_ID=accesskey
-      - AWS_SECRET_ACCESS_KEY=secretkey
+      - PASTEBIN_S3_BUCKET=pastebin
+      - PASTEBIN_S3_ENDPOINT=s3:9000
+      - PASTEBIN_S3_REGION=us-east-1
+      - PASTEBIN_S3_USE_SSL=false
+      - PASTEBIN_S3_ACCESS_KEY=accesskey
+      - PASTEBIN_S3_SECRET_KEY=secretkey
     depends_on:
       - s3
 

@@ -201,7 +201,12 @@
             background: #238636;
         }
 
-        button.primary:hover { background: #2ea043; }
+        button.primary:hover:not(:disabled) { background: #2ea043; }
+
+        button.primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         button.secondary, .btn.secondary {
             color: var(--text);
@@ -289,7 +294,7 @@
                     <option value="{{.Duration}}" {{if .IsDefault}}selected{{end}}>{{.Label}}</option>
                     {{end}}
                 </select>
-                <button type="submit" class="primary">Save as new</button>
+                <button type="submit" class="primary" id="save-btn" disabled>Save as new</button>
                 <span class="spacer"></span>
                 <button type="button" class="danger" onclick="deletePaste()">Delete</button>
             </div>
@@ -314,6 +319,8 @@
     <script>
         const textarea = document.getElementById('content');
         const lines = document.getElementById('lines');
+        const saveBtn = document.getElementById('save-btn');
+        const originalContent = textarea ? textarea.value : '';
 
         function updateLines() {
             if (!textarea || !lines) return;
@@ -323,8 +330,16 @@
             lines.innerHTML = html.join('');
         }
 
+        function updateSaveButton() {
+            if (!textarea || !saveBtn) return;
+            saveBtn.disabled = textarea.value === originalContent;
+        }
+
         if (textarea && lines) {
-            textarea.addEventListener('input', updateLines);
+            textarea.addEventListener('input', () => {
+                updateLines();
+                updateSaveButton();
+            });
             textarea.addEventListener('scroll', () => lines.scrollTop = textarea.scrollTop);
             updateLines();
         }

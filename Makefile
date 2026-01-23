@@ -66,22 +66,22 @@ PKG_VERSION ?= $(shell echo $(VERSION) | sed 's/^v//' || echo "0.0.0")
 
 package-deb-amd64: build-linux-amd64
 	@mkdir -p $(DIST_DIR)
-	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(DIST_DIR)/
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(DIST_DIR)/$(BINARY_NAME)
 	VERSION=$(PKG_VERSION) GOARCH=amd64 nfpm package -p deb -t $(DIST_DIR)/
 
 package-deb-arm64: build-linux-arm64
 	@mkdir -p $(DIST_DIR)
-	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(DIST_DIR)/
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(DIST_DIR)/$(BINARY_NAME)
 	VERSION=$(PKG_VERSION) GOARCH=arm64 nfpm package -p deb -t $(DIST_DIR)/
 
 package-rpm-amd64: build-linux-amd64
 	@mkdir -p $(DIST_DIR)
-	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(DIST_DIR)/
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(DIST_DIR)/$(BINARY_NAME)
 	VERSION=$(PKG_VERSION) GOARCH=amd64 nfpm package -p rpm -t $(DIST_DIR)/
 
 package-rpm-arm64: build-linux-arm64
 	@mkdir -p $(DIST_DIR)
-	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(DIST_DIR)/
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(DIST_DIR)/$(BINARY_NAME)
 	VERSION=$(PKG_VERSION) GOARCH=arm64 nfpm package -p rpm -t $(DIST_DIR)/
 
 packages: package-deb-amd64 package-deb-arm64 package-rpm-amd64 package-rpm-arm64

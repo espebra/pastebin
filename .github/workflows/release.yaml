@@ -112,6 +112,10 @@ jobs:
           name: pastebin-linux-${{ matrix.goarch }}
           path: dist
 
+      - name: Prepare binary
+        run: |
+          mv dist/pastebin-linux-${{ matrix.goarch }} dist/pastebin
+
       - name: Install nfpm
         run: |
           GOARCH=amd64 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest

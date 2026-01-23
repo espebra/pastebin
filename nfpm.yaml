@@ -9,7 +9,7 @@ homepage: https://github.com/espebra/pastebin
 license: BSD-3-Clause
 
 contents:
-  - src: ./dist/pastebin-linux-${GOARCH}
+  - src: ./dist/pastebin
     dst: /usr/bin/pastebin
     file_info:
       mode: 0755

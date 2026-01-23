@@ -112,10 +112,6 @@ jobs:
           name: pastebin-linux-${{ matrix.goarch }}
           path: dist
 
-      - name: Install nfpm
-        run: |
-          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-
       - name: Build deb package
         env:
           VERSION: ${{ github.ref_name }}
@@ -123,7 +119,7 @@ jobs:
         run: |
           # Remove 'v' prefix from version for package version
           PKG_VERSION=${VERSION#v}
-          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} nfpm package -p deb -t dist/
+          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} go run github.com/goreleaser/nfpm/v2/cmd/nfpm@latest package -p deb -t dist/
 
       - name: Build rpm package
         env:
@@ -131,7 +127,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           PKG_VERSION=${VERSION#v}
-          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} nfpm package -p rpm -t dist/
+          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} go run github.com/goreleaser/nfpm/v2/cmd/nfpm@latest package -p rpm -t dist/
 
       - name: Upload deb artifact
         uses: actions/upload-artifact@v4

@@ -1,15 +1,15 @@
 name: pastebin
-arch: ${GOARCH}
+arch: ${ARCH}
 platform: linux
 version: ${VERSION}
 maintainer: Espen Braastad
 description: A simple, self-hosted pastebin service with S3-compatible storage backend
-vendor: Espen Braastad
+vendor: espebra
 homepage: https://github.com/espebra/pastebin
 license: BSD-3-Clause
 
 contents:
-  - src: ./dist/pastebin
+  - src: ./bin/pastebin-linux-${ARCH}
     dst: /usr/bin/pastebin
     file_info:
       mode: 0755
@@ -28,3 +28,11 @@ contents:
 scripts:
   postinstall: ./packaging/postinstall.sh
   preremove: ./packaging/preremove.sh
+
+overrides:
+  deb:
+    depends:
+      - systemd
+  rpm:
+    depends:
+      - systemd

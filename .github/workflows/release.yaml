@@ -98,50 +98,42 @@ jobs:
     needs: [build-binaries]
     strategy:
       matrix:
-        include:
-          - goarch: amd64
-            arch: amd64
-          - goarch: arm64
-            arch: arm64
+        arch: [amd64, arm64]
+        format: [deb, rpm]
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: false
 
       - name: Download Linux binary
         uses: actions/download-artifact@v4
         with:
-          name: pastebin-linux-${{ matrix.goarch }}
-          path: dist
+          name: pastebin-linux-${{ matrix.arch }}
+          path: bin
 
-      - name: Prepare binary
-        run: |
-          mv dist/pastebin-linux-${{ matrix.goarch }} dist/pastebin
+      - name: Make binary executable
+        run: chmod +x bin/*
 
       - name: Install nfpm
-        run: |
-          GOARCH=amd64 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
-          echo "$HOME/go/bin" >> $GITHUB_PATH
+        run: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
 
-      - name: Build deb package
+      - name: Build package
         run: |
-          PKG_VERSION=${GITHUB_REF_NAME#v}
-          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} nfpm package -p deb -t dist/
+          export VERSION=${GITHUB_REF_NAME#v}
+          export ARCH=${{ matrix.arch }}
+          envsubst < nfpm.yaml > nfpm-substituted.yaml
+          cat nfpm-substituted.yaml
+          nfpm package -p ${{ matrix.format }} -f nfpm-substituted.yaml
 
-      - name: Build rpm package
-        run: |
-          PKG_VERSION=${GITHUB_REF_NAME#v}
-          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} nfpm package -p rpm -t dist/
-
-      - name: Upload deb artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pastebin-${{ matrix.arch }}-deb
-          path: dist/*.deb
-
-      - name: Upload rpm artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pastebin-${{ matrix.arch }}-rpm
-          path: dist/*.rpm
+          name: pastebin-${{ matrix.arch }}-${{ matrix.format }}
+          path: "*.${{ matrix.format }}"
 
   release:
     name: Create Release

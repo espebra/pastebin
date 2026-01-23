@@ -115,6 +115,9 @@ jobs:
           name: pastebin-linux-${{ matrix.arch }}
           path: bin
 
+      - name: List downloaded binaries
+        run: ls -la bin/
+
       - name: Make binary executable
         run: chmod +x bin/*
 
@@ -128,6 +131,10 @@ jobs:
           envsubst < nfpm.yaml > nfpm-substituted.yaml
           cat nfpm-substituted.yaml
           nfpm package -p ${{ matrix.format }} -f nfpm-substituted.yaml
+
+      - name: Verify package files exist
+        run: |
+          ls *.${{ matrix.format }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -149,16 +156,22 @@ jobs:
         with:
           pattern: pastebin-*
           path: dist
+          merge-multiple: false
+
+      - name: List downloaded artifacts
+        run: ls -lR artifacts/
 
       - name: Prepare release files
         run: |
           mkdir -p release
+          cp artifacts/binaries/pastebin-* release/
           find dist -type f \( -name 'pastebin-*' -o -name '*.deb' -o -name '*.rpm' \) -exec mv {} release/ \;
           cd release
           sha256sum * > checksums.txt
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
           files: release/*
           generate_release_notes: true
+          draft: false

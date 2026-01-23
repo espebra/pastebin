@@ -1,0 +1,36 @@
+version: "3"
+services:
+  pastebin:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PASTEBIN_HOST: "0.0.0.0"
+      PASTEBIN_PORT: "8080"
+      S3_ENDPOINT: "s3:5553"
+      S3_REGION: "us-east-1"
+      S3_BUCKET: "pastebin"
+      S3_USE_SSL: "false"
+      AWS_ACCESS_KEY_ID: "pastebin-access-key"
+      AWS_SECRET_ACCESS_KEY: "pastebin-secret-key"
+      CLEANUP_INTERVAL: "1h"
+      MAX_PASTE_SIZE: "1048576"
+      DEFAULT_TTL: "1y"
+      LOG_FORMAT: "text"
+      LOG_LEVEL: "info"
+    depends_on:
+      - s3
+    restart: unless-stopped
+
+  s3:
+    image: ghcr.io/espebra/stupid-simple-s3:latest
+    environment:
+      STUPID_BUCKET_NAME: "pastebin"
+      STUPID_RW_ACCESS_KEY: "pastebin-access-key"
+      STUPID_RW_SECRET_KEY: "pastebin-secret-key"
+    volumes:
+      - s3-data:/var/lib/stupid-simple-s3
+    restart: unless-stopped
+
+volumes:
+  s3-data:

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{if .Error}}Error{{else}}{{slice .Checksum 0 8}}{{end}} - Pastebin</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #c9d1d9;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --danger: #f85149;
+            --font-mono: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+        }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        header a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .error {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .error h2 {
+            color: var(--danger);
+            margin-bottom: 1rem;
+        }
+
+        .error a {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 8px 16px;
+            color: #fff;
+            background: #238636;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+
+        form {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 13px;
+            color: var(--muted);
+            flex-wrap: wrap;
+        }
+
+        .info a {
+            text-decoration: none;
+        }
+
+        .info code {
+            font-family: var(--font-mono);
+            background: var(--surface);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--accent);
+        }
+
+        .info a:hover code {
+            text-decoration: underline;
+        }
+
+        .editor {
+            flex: 1;
+            display: flex;
+            min-height: 400px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
+            color: var(--muted);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .editor:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { color: var(--text); border-color: var(--muted); }
+
+        .lines {
+            padding: 12px 0;
+            text-align: right;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--muted);
+            border-right: 1px solid var(--border);
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .lines span {
+            display: block;
+            padding: 0 12px;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text);
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+        }
+
+        .actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 8px 12px;
+            font-size: 14px;
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        select:focus { outline: 1px solid var(--accent); }
+
+        .spacer { flex: 1; }
+
+        button, .btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        button.primary, .btn.primary {
+            color: #fff;
+            background: #238636;
+        }
+
+        button.primary:hover { background: #2ea043; }
+
+        button.secondary, .btn.secondary {
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--border);
+        }
+
+        button.secondary:hover, .btn.secondary:hover {
+            background: var(--border);
+        }
+
+        button.danger {
+            color: var(--danger);
+            background: transparent;
+            border: 1px solid var(--danger);
+        }
+
+        button.danger:hover {
+            color: #fff;
+            background: var(--danger);
+        }
+
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 100;
+        }
+
+        .modal-backdrop.active { display: flex; align-items: center; justify-content: center; }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal h3 { margin-bottom: 0.5rem; }
+        .modal p { color: var(--muted); margin-bottom: 1.5rem; }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <header><a href="/">Pastebin</a></header>
+
+    <main>
+        {{if .Error}}
+        <div class="error">
+            <h2>Error</h2>
+            <p>{{.Error}}</p>
+            <a href="/">Create New Paste</a>
+        </div>
+        {{else}}
+        <form action="/" method="POST">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <div class="info">
+                <a href="/{{.Checksum}}"><code>{{slice .Checksum 0 12}}</code></a>
+                <span>{{.Size}} bytes</span>
+                <span>Expires <time id="expires-at" datetime="{{.ExpiresAt}}">{{.ExpiresAt}}</time></span>
+            </div>
+
+            <div class="editor">
+                <div class="lines" id="lines"></div>
+                <textarea
+                    id="content"
+                    name="content"
+                    spellcheck="false"
+                >{{.Content}}</textarea>
+                <button type="button" class="copy-btn" onclick="copyToClipboard()">Copy</button>
+            </div>
+
+            <div class="actions">
+                <a href="/raw/{{.Checksum}}" class="btn secondary">Raw</a>
+                <select name="ttl">
+                    {{range .TTLOptions}}
+                    <option value="{{.Duration}}" {{if .IsDefault}}selected{{end}}>{{.Label}}</option>
+                    {{end}}
+                </select>
+                <button type="submit" class="primary">Save as new</button>
+                <span class="spacer"></span>
+                <button type="button" class="danger" onclick="deletePaste()">Delete</button>
+            </div>
+        </form>
+        <form id="delete-form" action="/delete/{{.Checksum}}" method="POST" style="display: none;">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+        </form>
+
+        <div class="modal-backdrop" id="delete-modal">
+            <div class="modal">
+                <h3>Delete paste?</h3>
+                <p>This action cannot be undone.</p>
+                <div class="modal-actions">
+                    <button type="button" class="secondary" onclick="closeModal()">Cancel</button>
+                    <button type="button" class="danger" onclick="confirmDelete()">Delete</button>
+                </div>
+            </div>
+        </div>
+        {{end}}
+    </main>
+
+    <script>
+        const textarea = document.getElementById('content');
+        const lines = document.getElementById('lines');
+
+        function updateLines() {
+            if (!textarea || !lines) return;
+            const count = textarea.value.split('\n').length;
+            const html = [];
+            for (let i = 1; i <= count; i++) html.push('<span>' + i + '</span>');
+            lines.innerHTML = html.join('');
+        }
+
+        if (textarea && lines) {
+            textarea.addEventListener('input', updateLines);
+            textarea.addEventListener('scroll', () => lines.scrollTop = textarea.scrollTop);
+            updateLines();
+        }
+
+        const expiresEl = document.getElementById('expires-at');
+        if (expiresEl) {
+            const date = new Date(expiresEl.getAttribute('datetime'));
+            const now = new Date();
+            const diff = date - now;
+
+            if (diff <= 0) {
+                expiresEl.textContent = 'soon';
+            } else {
+                const minutes = Math.floor(diff / 60000);
+                const hours = Math.floor(diff / 3600000);
+                const days = Math.floor(diff / 86400000);
+                const months = Math.floor(days / 30);
+                const years = Math.floor(days / 365);
+
+                if (years > 0) {
+                    expiresEl.textContent = 'in ' + years + (years === 1 ? ' year' : ' years');
+                } else if (months > 0) {
+                    expiresEl.textContent = 'in ' + months + (months === 1 ? ' month' : ' months');
+                } else if (days > 0) {
+                    expiresEl.textContent = 'in ' + days + (days === 1 ? ' day' : ' days');
+                } else if (hours > 0) {
+                    expiresEl.textContent = 'in ' + hours + (hours === 1 ? ' hour' : ' hours');
+                } else {
+                    expiresEl.textContent = 'in ' + minutes + (minutes === 1 ? ' minute' : ' minutes');
+                }
+            }
+        }
+
+        function copyToClipboard() {
+            const btn = document.querySelector('.copy-btn');
+            navigator.clipboard.writeText(textarea.value).then(() => {
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = 'Copy', 1500);
+            });
+        }
+
+        function deletePaste() {
+            document.getElementById('delete-modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('delete-modal').classList.remove('active');
+        }
+
+        function confirmDelete() {
+            document.getElementById('delete-form').submit();
+        }
+
+        document.getElementById('delete-modal')?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-backdrop')) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>

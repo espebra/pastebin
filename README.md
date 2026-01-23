@@ -38,7 +38,7 @@ Configuration is done via environment variables:
 | `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
 
-## Get started
+## Getting started
 
 ### From container image
 
@@ -130,7 +130,7 @@ sudo systemctl start pastebin
 
 Download the binary for your platform from the [releases page](https://github.com/espebra/pastebin/releases).
 
-### Manually
+### From source code
 
 ```bash
 # Build

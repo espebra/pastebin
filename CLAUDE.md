@@ -1,6 +1,6 @@
-# Stupid Simple Pastebin
+# Pastebin
 
-Stupid Simple Pastebin is a web service that makes it easy to paste and share text with other people online. 
+Pastebin is a web service that makes it easy to paste and share text with other people online. 
 
 - The configuration is environment variables only.
 - Each paste is stored as a separate object in S3.

@@ -110,7 +110,9 @@ func TestGetTokenFromForm(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.ParseForm()
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("failed to parse form: %v", err)
+	}
 
 	got := GetTokenFromForm(req)
 	if got != token {
@@ -129,7 +131,9 @@ func TestValidate_Success(t *testing.T) {
 		Name:  cookieName,
 		Value: token,
 	})
-	req.ParseForm()
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("failed to parse form: %v", err)
+	}
 
 	if !Validate(req) {
 		t.Error("expected validation to pass")
@@ -146,7 +150,9 @@ func TestValidate_MismatchedTokens(t *testing.T) {
 		Name:  cookieName,
 		Value: "cookie-token",
 	})
-	req.ParseForm()
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("failed to parse form: %v", err)
+	}
 
 	if Validate(req) {
 		t.Error("expected validation to fail with mismatched tokens")
@@ -159,7 +165,9 @@ func TestValidate_MissingCookie(t *testing.T) {
 
 	req := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.ParseForm()
+	if err := req.ParseForm(); err != nil {
+		t.Fatalf("failed to parse form: %v", err)
+	}
 
 	if Validate(req) {
 		t.Error("expected validation to fail with missing cookie")

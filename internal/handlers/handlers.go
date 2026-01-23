@@ -106,7 +106,7 @@ func securityHeaders(next http.Handler) http.Handler {
 func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -280,7 +280,7 @@ func (h *Handler) handleRaw(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Write([]byte(p.Content))
+	_, _ = w.Write([]byte(p.Content))
 }
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {

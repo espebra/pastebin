@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -147,9 +146,9 @@ func TestGet_VerifiesChecksum(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pastes/") {
-			w.Write([]byte(content))
+			_, _ = w.Write([]byte(content))
 		} else if strings.Contains(r.URL.Path, "/meta/") {
-			w.Write(metaJSON)
+			_, _ = w.Write(metaJSON)
 		}
 	}))
 	defer server.Close()
@@ -195,9 +194,9 @@ func TestGet_DetectsCorruption(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/pastes/") {
 			// Return corrupted content
-			w.Write([]byte(corruptedContent))
+			_, _ = w.Write([]byte(corruptedContent))
 		} else if strings.Contains(r.URL.Path, "/meta/") {
-			w.Write(metaJSON)
+			_, _ = w.Write(metaJSON)
 		}
 	}))
 	defer server.Close()
@@ -230,19 +229,19 @@ func TestForEachMeta_IteratesAllItems(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/test-bucket" && r.URL.Query().Get("list-type") == "2" {
 			// List objects response
-			response := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+			response := `<?xml version="1.0" encoding="UTF-8"?>
 				<ListBucketResult>
 					<Contents><Key>meta/checksum1.json</Key></Contents>
 					<Contents><Key>meta/checksum2.json</Key></Contents>
 					<Contents><Key>meta/checksum3.json</Key></Contents>
-				</ListBucketResult>`)
-			w.Write([]byte(response))
+				</ListBucketResult>`
+			_, _ = w.Write([]byte(response))
 		} else if strings.Contains(r.URL.Path, "/meta/checksum1.json") {
-			json.NewEncoder(w).Encode(metas[0])
+			_ = json.NewEncoder(w).Encode(metas[0])
 		} else if strings.Contains(r.URL.Path, "/meta/checksum2.json") {
-			json.NewEncoder(w).Encode(metas[1])
+			_ = json.NewEncoder(w).Encode(metas[1])
 		} else if strings.Contains(r.URL.Path, "/meta/checksum3.json") {
-			json.NewEncoder(w).Encode(metas[2])
+			_ = json.NewEncoder(w).Encode(metas[2])
 		}
 	}))
 	defer server.Close()
@@ -278,16 +277,16 @@ func TestForEachMeta_StopsOnCallbackError(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/test-bucket" && r.URL.Query().Get("list-type") == "2" {
-			response := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+			response := `<?xml version="1.0" encoding="UTF-8"?>
 				<ListBucketResult>
 					<Contents><Key>meta/checksum1.json</Key></Contents>
 					<Contents><Key>meta/checksum2.json</Key></Contents>
-				</ListBucketResult>`)
-			w.Write([]byte(response))
+				</ListBucketResult>`
+			_, _ = w.Write([]byte(response))
 		} else if strings.Contains(r.URL.Path, "/meta/checksum1.json") {
-			json.NewEncoder(w).Encode(metas[0])
+			_ = json.NewEncoder(w).Encode(metas[0])
 		} else if strings.Contains(r.URL.Path, "/meta/checksum2.json") {
-			json.NewEncoder(w).Encode(metas[1])
+			_ = json.NewEncoder(w).Encode(metas[1])
 		}
 	}))
 	defer server.Close()

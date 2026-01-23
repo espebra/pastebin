@@ -1,3 +1,8 @@
+[![CI](https://github.com/espebra/pastebin/actions/workflows/ci.yaml/badge.svg)](https://github.com/espebra/pastebin/actions/workflows/ci.yaml)
+[![Release](https://github.com/espebra/pastebin/actions/workflows/release.yaml/badge.svg)](https://github.com/espebra/pastebin/actions/workflows/release.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/espebra/stupid-simple-s3)](https://goreportcard.com/report/github.com/espebra/stupid-simple-s3)
+[![Go Reference](https://pkg.go.dev/badge/github.com/espebra/stupid-simple-s3.svg)](https://pkg.go.dev/github.com/espebra/stupid-simple-s3)
+
 # Pastebin
 
 A simple, self-hosted pastebin service with S3-compatible storage backend.
@@ -5,7 +10,6 @@ A simple, self-hosted pastebin service with S3-compatible storage backend.
 ## Features
 
 - Store and share text snippets with unique URLs
-- Syntax highlighting with CodeMirror
 - Configurable time-to-live (TTL) for pastes
 - Automatic cleanup of expired pastes
 - Content-addressable storage using SHA256 checksums
@@ -128,11 +132,11 @@ services:
   s3:
     image: ghcr.io/espebra/s3s3:latest
     environment:
-      - S3S3_ACCESS_KEY=accesskey
-      - S3S3_SECRET_KEY=secretkey
-      - S3S3_BUCKET=pastebin
+      - STUPID_BUCKET_NAME: pastebin
+      - STUPID_RW_ACCESS_KEY: accesskey
+      - STUPID_RW_SECRET_KEY: secretkey
     volumes:
-      - s3-data:/data
+      - s3-data:/var/lib/stupid-simple-s3/
 
 volumes:
   s3-data:
@@ -153,11 +157,11 @@ The pastebin will be available at http://localhost:8080.
 go build -o pastebin ./cmd/pastebin
 
 # Run (with MinIO example)
-export S3_BUCKET=pastebin
-export S3_ENDPOINT=localhost:9000
-export S3_USE_SSL=false
-export AWS_ACCESS_KEY_ID=minioadmin
-export AWS_SECRET_ACCESS_KEY=minioadmin
+export PASTEBIN_S3_BUCKET=pastebin
+export PASTEBIN_S3_ENDPOINT=localhost:9000
+export PASTEBIN_S3_USE_SSL=false
+export PASTEBIN_S3_ACCESS_KEY=minioadmin
+export PASTEBIN_S3_SECRET_KEY=minioadmin
 
 ./pastebin
 ```

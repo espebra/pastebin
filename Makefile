@@ -10,8 +10,11 @@ GOTEST=$(GOCMD) test
 GOMOD=$(GOCMD) mod
 GOVET=$(GOCMD) vet
 
+# Version from git tag (commit info is embedded automatically by Go)
+VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "")
+
 # Build flags
-LDFLAGS=-ldflags="-s -w"
+LDFLAGS=-ldflags="-s -w -X main.Version=$(VERSION)"
 
 build:
 	@mkdir -p $(BUILD_DIR)

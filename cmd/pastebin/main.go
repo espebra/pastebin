@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -20,10 +22,56 @@ import (
 )
 
 func main() {
+	versionFlag := flag.Bool("version", false, "Print version information and exit")
+	flag.Parse()
+
+	if *versionFlag {
+		printVersion()
+		os.Exit(0)
+	}
+
 	if err := run(); err != nil {
 		slog.Error("fatal error", "error", err)
 		os.Exit(1)
 	}
+}
+
+// Version can be set via ldflags for release builds (e.g., -X main.Version=v1.0.0)
+var Version = ""
+
+func printVersion() {
+	version := Version
+	commit := "unknown"
+	modified := ""
+
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				commit = setting.Value
+				if len(commit) > 7 {
+					commit = commit[:7]
+				}
+			case "vcs.modified":
+				if setting.Value == "true" {
+					modified = "-dirty"
+				}
+			}
+		}
+		if version == "" {
+			v := info.Main.Version
+			// Use module version only if it's a proper semver tag, not a pseudo-version
+			// Pseudo-versions look like v0.0.0-20060102150405-abcdef123456
+			isPseudo := strings.HasPrefix(v, "v0.0.0-") || strings.Contains(v, "-0.")
+			if v != "" && v != "(devel)" && !isPseudo {
+				version = v
+			} else {
+				version = "dev"
+			}
+		}
+	}
+
+	fmt.Printf("pastebin %s (commit: %s%s)\n", version, commit, modified)
 }
 
 func run() error {

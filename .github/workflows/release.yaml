@@ -38,7 +38,7 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: |
           mkdir -p dist
-          go build -ldflags="-s -w" -o dist/pastebin-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/pastebin
+          go build -ldflags="-s -w -X main.Version=${GITHUB_REF_NAME}" -o dist/pastebin-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/pastebin
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -87,6 +87,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

@@ -45,6 +45,13 @@ Configuration is done via environment variables:
 
 ## Running
 
+### Version Information
+
+```bash
+./pastebin --version
+# pastebin v1.0.0 (commit: abc1234)
+```
+
 ### With Docker Compose
 
 ```bash
@@ -109,6 +116,30 @@ go test ./...
 ```bash
 go build -o pastebin ./cmd/pastebin
 ```
+
+### Releasing
+
+Releases are automated via GitHub Actions. To create a new release:
+
+1. Ensure all changes are committed and pushed to the main branch
+2. Create and push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The release workflow will automatically:
+
+- Build binaries for Linux (amd64, arm64) and macOS (amd64, arm64)
+- Build and push multi-arch Docker images to `ghcr.io`
+- Create a GitHub release with binaries and checksums
+
+Docker images are tagged with:
+- Full version (e.g., `v1.0.0`)
+- Minor version (e.g., `1.0`)
+- Major version (e.g., `1`)
+- Git SHA
 
 ## License
 

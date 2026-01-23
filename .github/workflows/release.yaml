@@ -92,10 +92,63 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-packages:
+    name: Build Packages
+    runs-on: ubuntu-latest
+    needs: [build-binaries]
+    strategy:
+      matrix:
+        include:
+          - goarch: amd64
+            arch: amd64
+          - goarch: arm64
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Linux binary
+        uses: actions/download-artifact@v4
+        with:
+          name: pastebin-linux-${{ matrix.goarch }}
+          path: dist
+
+      - name: Install nfpm
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+      - name: Build deb package
+        env:
+          VERSION: ${{ github.ref_name }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          # Remove 'v' prefix from version for package version
+          PKG_VERSION=${VERSION#v}
+          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} nfpm package -p deb -t dist/
+
+      - name: Build rpm package
+        env:
+          VERSION: ${{ github.ref_name }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          PKG_VERSION=${VERSION#v}
+          VERSION=$PKG_VERSION GOARCH=${{ matrix.goarch }} nfpm package -p rpm -t dist/
+
+      - name: Upload deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastebin-${{ matrix.arch }}-deb
+          path: dist/*.deb
+
+      - name: Upload rpm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pastebin-${{ matrix.arch }}-rpm
+          path: dist/*.rpm
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build-binaries, build-container]
+    needs: [build-binaries, build-packages, build-container]
     permissions:
       contents: write
     steps:
@@ -109,7 +162,7 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          find dist -type f -name 'pastebin-*' -exec mv {} release/ \;
+          find dist -type f \( -name 'pastebin-*' -o -name '*.deb' -o -name '*.rpm' \) -exec mv {} release/ \;
           cd release
           sha256sum * > checksums.txt
 

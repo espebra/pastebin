@@ -43,6 +43,31 @@ Configuration is done via environment variables:
 | `LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
 
+## Installation
+
+### From Package (Recommended for Linux)
+
+Download the latest `.deb` or `.rpm` package from the [releases page](https://github.com/espebra/pastebin/releases).
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i pastebin_1.0.0_amd64.deb
+
+# RHEL/CentOS/Fedora
+sudo rpm -i pastebin-1.0.0.x86_64.rpm
+```
+
+After installation, configure `/etc/default/pastebin` and start the service:
+
+```bash
+sudo systemctl enable pastebin
+sudo systemctl start pastebin
+```
+
+### From Binary
+
+Download the binary for your platform from the [releases page](https://github.com/espebra/pastebin/releases).
+
 ## Running
 
 ### Version Information
@@ -54,9 +79,46 @@ Configuration is done via environment variables:
 
 ### With Docker Compose
 
+Create a `docker-compose.yml` file:
+
+```yaml
+services:
+  pastebin:
+    image: ghcr.io/espebra/pastebin:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - PASTEBIN_HOST=0.0.0.0
+      - PASTEBIN_PORT=8080
+      - S3_BUCKET=pastebin
+      - S3_ENDPOINT=s3:9000
+      - S3_REGION=us-east-1
+      - S3_USE_SSL=false
+      - AWS_ACCESS_KEY_ID=accesskey
+      - AWS_SECRET_ACCESS_KEY=secretkey
+    depends_on:
+      - s3
+
+  s3:
+    image: ghcr.io/espebra/s3s3:latest
+    environment:
+      - S3S3_ACCESS_KEY=accesskey
+      - S3S3_SECRET_KEY=secretkey
+      - S3S3_BUCKET=pastebin
+    volumes:
+      - s3-data:/data
+
+volumes:
+  s3-data:
+```
+
+Then run:
+
 ```bash
 docker-compose up
 ```
+
+The pastebin will be available at http://localhost:8080.
 
 ### Manually
 

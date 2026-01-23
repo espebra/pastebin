@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean docker
+.PHONY: build run test lint clean docker package-deb package-rpm packages
 
 BINARY_NAME=pastebin
 BUILD_DIR=bin
@@ -59,3 +59,29 @@ build-darwin-arm64:
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/pastebin
 
 build-all: build-linux-amd64 build-linux-arm64 build-darwin-amd64 build-darwin-arm64
+
+# Package building (requires nfpm: go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest)
+DIST_DIR=dist
+PKG_VERSION ?= $(shell echo $(VERSION) | sed 's/^v//' || echo "0.0.0")
+
+package-deb-amd64: build-linux-amd64
+	@mkdir -p $(DIST_DIR)
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(DIST_DIR)/
+	VERSION=$(PKG_VERSION) GOARCH=amd64 nfpm package -p deb -t $(DIST_DIR)/
+
+package-deb-arm64: build-linux-arm64
+	@mkdir -p $(DIST_DIR)
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(DIST_DIR)/
+	VERSION=$(PKG_VERSION) GOARCH=arm64 nfpm package -p deb -t $(DIST_DIR)/
+
+package-rpm-amd64: build-linux-amd64
+	@mkdir -p $(DIST_DIR)
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(DIST_DIR)/
+	VERSION=$(PKG_VERSION) GOARCH=amd64 nfpm package -p rpm -t $(DIST_DIR)/
+
+package-rpm-arm64: build-linux-arm64
+	@mkdir -p $(DIST_DIR)
+	@cp $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(DIST_DIR)/
+	VERSION=$(PKG_VERSION) GOARCH=arm64 nfpm package -p rpm -t $(DIST_DIR)/
+
+packages: package-deb-amd64 package-deb-arm64 package-rpm-amd64 package-rpm-arm64

@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean docker package-deb package-rpm packages
+.PHONY: build run test fuzz lint clean docker package-deb package-rpm packages
 
 BINARY_NAME=pastebin
 BUILD_DIR=bin
@@ -25,6 +25,12 @@ run: build
 
 test:
 	$(GOTEST) -v -race -cover ./...
+
+fuzz:
+	$(GOTEST) -fuzz=FuzzIsValidChecksum -fuzztime=30s ./internal/handlers
+	$(GOTEST) -fuzz=FuzzComputeChecksum -fuzztime=30s ./internal/paste
+	$(GOTEST) -fuzz=FuzzNewPaste -fuzztime=30s ./internal/paste
+	$(GOTEST) -fuzz=FuzzTokenComparison -fuzztime=30s ./internal/csrf
 
 lint:
 	golangci-lint run ./...

@@ -39,10 +39,11 @@ func main() {
 // Version can be set via ldflags for release builds (e.g., -X main.Version=v1.0.0)
 var Version = ""
 
-func printVersion() {
-	version := Version
-	commit := "unknown"
-	modified := ""
+// getVersionInfo returns version, commit hash, and modified status
+func getVersionInfo() (version, commit, modified string) {
+	version = Version
+	commit = "unknown"
+	modified = ""
 
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
@@ -71,6 +72,11 @@ func printVersion() {
 		}
 	}
 
+	return version, commit, modified
+}
+
+func printVersion() {
+	version, commit, modified := getVersionInfo()
 	fmt.Printf("pastebin %s (commit: %s%s)\n", version, commit, modified)
 }
 
@@ -84,7 +90,9 @@ func run() error {
 	// Configure structured logging
 	configureLogger(cfg.LogFormat, cfg.LogLevel)
 
-	slog.Info("starting pastebin")
+	// Log version information at startup
+	version, commit, modified := getVersionInfo()
+	slog.Info("starting pastebin", "version", version, "commit", commit+modified)
 
 	// Log configuration (without secrets)
 	slog.Info("configuration loaded",

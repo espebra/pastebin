@@ -71,7 +71,18 @@ docker run -p 8080:8080 \
 Create a `docker-compose.yml` file:
 
 ```yaml
+version: "3"
 services:
+  s3:
+    image: ghcr.io/espebra/stupid-simple-s3:latest
+    ports:
+      - "5553:5553"
+    environment:
+      - STUPID_RW_ACCESS_KEY=accesskey
+      - STUPID_RW_SECRET_KEY=secretkey
+    volumes:
+      - s3-data:/var/lib/stupid-simple-s3/
+    restart: unless-stopped
   pastebin:
     image: ghcr.io/espebra/pastebin:latest
     ports:
@@ -85,16 +96,6 @@ services:
       - PASTEBIN_S3_SECRET_KEY=secretkey
     depends_on:
       - s3
-
-  s3:
-    image: ghcr.io/espebra/stupid-simple-s3:latest
-    environment:
-      - STUPID_BUCKET_NAME: pastebin
-      - STUPID_RW_ACCESS_KEY: accesskey
-      - STUPID_RW_SECRET_KEY: secretkey
-    volumes:
-      - s3-data:/var/lib/stupid-simple-s3/
-
 volumes:
   s3-data:
 ```
@@ -187,7 +188,8 @@ The checksum is the SHA256 hash of the paste content, ensuring deduplication and
 ### Running Tests
 
 ```bash
-go test ./...
+make test
+make fuzz
 ```
 
 ### Building

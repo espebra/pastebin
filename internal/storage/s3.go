@@ -50,10 +50,46 @@ func New(ctx context.Context, endpoint, region, bucket, accessKey, secretKey str
 		o.UsePathStyle = true // Required for MinIO and most S3-compatible services
 	})
 
-	return &S3Storage{
+	storage := &S3Storage{
 		client: client,
 		bucket: bucket,
-	}, nil
+	}
+
+	// Ensure bucket exists, create if it doesn't
+	if err := storage.ensureBucketExists(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ensure bucket exists: %w", err)
+	}
+
+	return storage, nil
+}
+
+// ensureBucketExists checks if the bucket exists and creates it if it doesn't
+func (s *S3Storage) ensureBucketExists(ctx context.Context) error {
+	// Check if bucket exists using HeadBucket
+	_, err := s.client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(s.bucket),
+	})
+	if err == nil {
+		// Bucket exists
+		return nil
+	}
+
+	// Check if the error is because the bucket doesn't exist
+	var notFound *types.NotFound
+	if !errors.As(err, &notFound) {
+		// Some other error occurred
+		return fmt.Errorf("failed to check bucket: %w", err)
+	}
+
+	// Bucket doesn't exist, create it
+	_, err = s.client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(s.bucket),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create bucket: %w", err)
+	}
+
+	return nil
 }
 
 // Store saves a paste and its metadata to S3

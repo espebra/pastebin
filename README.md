@@ -82,7 +82,6 @@ sudo dpkg -i pastebin_1.0.0_amd64.deb
 
 # RHEL/Fedora
 sudo rpm -i pastebin-1.0.0.x86_64.rpm
-```
 
 ## 2. Configure
 # Edit /etc/default/pastebin

@@ -17,44 +17,9 @@ A simple, self-hosted pastebin service with S3-compatible storage backend.
 - Copy to clipboard functionality
 - Raw paste view
 
-## Configuration
-
-Configuration is done via environment variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PASTEBIN_S3_BUCKET` | S3 bucket name (required) | - |
-| `PASTEBIN_S3_ENDPOINT` | S3 endpoint URL | `s3.amazonaws.com` |
-| `PASTEBIN_S3_REGION` | S3 region | `us-east-1` |
-| `PASTEBIN_S3_USE_SSL` | Use HTTPS for S3 | `true` |
-| `PASTEBIN_S3_ACCESS_KEY` | S3 access key | - |
-| `PASTEBIN_S3_SECRET_KEY` | S3 secret key | - |
-| `PASTEBIN_HOST` | Listen host | `127.0.0.1` |
-| `PASTEBIN_PORT` | Listen port | `8080` |
-| `PASTEBIN_MAX_PASTE_SIZE` | Maximum paste size in bytes | `1048576` (1MB) |
-| `PASTEBIN_DEFAULT_TTL` | Default paste TTL | `8760h` (1 year) |
-| `PASTEBIN_CLEANUP_INTERVAL` | Interval between cleanup runs | `1h` |
-| `PASTEBIN_LOG_FORMAT` | Log format (`text` or `json`) | `text` |
-| `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
-| `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
-
 ## Getting started
 
-### From container image
-
-Container images are available from GitHub Container Registry:
-
-```bash
-docker pull ghcr.io/espebra/pastebin:latest
-```
-
-Available tags:
-- `latest` - Latest release
-- `vX.Y.Z` - Specific version (e.g., `v1.0.0`)
-- `X.Y` - Minor version (e.g., `1.0`)
-- `X` - Major version (e.g., `1`)
-
-Run with:
+### Running with Docker
 
 ```bash
 docker run -p 8080:8080 \
@@ -66,9 +31,7 @@ docker run -p 8080:8080 \
   ghcr.io/espebra/pastebin:latest
 ```
 
-### With Docker Compose
-
-Create a `docker-compose.yml` file:
+### Running with Docker Compose
 
 ```yaml
 version: "3"
@@ -108,44 +71,56 @@ docker-compose up
 
 The pastebin service will be available at http://localhost:8080.
 
-### From package
+### Installing from packages
 
 Download the latest `.deb` or `.rpm` package from the [releases page](https://github.com/espebra/pastebin/releases).
 
 ```bash
+## 1. Install package
 # Debian/Ubuntu
 sudo dpkg -i pastebin_1.0.0_amd64.deb
 
-# RHEL/CentOS/Fedora
+# RHEL/Fedora
 sudo rpm -i pastebin-1.0.0.x86_64.rpm
 ```
 
-After installation, configure `/etc/default/pastebin` and start the service:
+## 2. Configure
+# Edit /etc/default/pastebin
 
-```bash
-sudo systemctl enable pastebin
-sudo systemctl start pastebin
+## 3. Start the service
+sudo systemctl enable --now pastebin
 ```
 
-### From binary
-
-Download the binary for your platform from the [releases page](https://github.com/espebra/pastebin/releases).
-
-### From source code
+### Building from source
 
 ```bash
-# Build
-go build -o pastebin ./cmd/pastebin
+# Build on your architecture and platform
+make build
 
-# Run (with MinIO example)
-export PASTEBIN_S3_BUCKET=pastebin
-export PASTEBIN_S3_ENDPOINT=localhost:9000
-export PASTEBIN_S3_USE_SSL=false
-export PASTEBIN_S3_ACCESS_KEY=minioadmin
-export PASTEBIN_S3_SECRET_KEY=minioadmin
-
-./pastebin
+# Or build for multiple architectures and platforms
+make build-all
 ```
+
+## Configuration
+
+The service is configured using environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PASTEBIN_S3_BUCKET` | S3 bucket name (required) | - |
+| `PASTEBIN_S3_ENDPOINT` | S3 endpoint URL | `s3.amazonaws.com` |
+| `PASTEBIN_S3_REGION` | S3 region | `us-east-1` |
+| `PASTEBIN_S3_USE_SSL` | Use HTTPS for S3 | `true` |
+| `PASTEBIN_S3_ACCESS_KEY` | S3 access key | - |
+| `PASTEBIN_S3_SECRET_KEY` | S3 secret key | - |
+| `PASTEBIN_HOST` | Listen host | `127.0.0.1` |
+| `PASTEBIN_PORT` | Listen port | `8080` |
+| `PASTEBIN_MAX_PASTE_SIZE` | Maximum paste size in bytes | `1048576` (1MB) |
+| `PASTEBIN_DEFAULT_TTL` | Default paste TTL | `8760h` (1 year) |
+| `PASTEBIN_CLEANUP_INTERVAL` | Interval between cleanup runs | `1h` |
+| `PASTEBIN_LOG_FORMAT` | Log format (`text` or `json`) | `text` |
+| `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
+| `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
 
 ## Check current version
 
@@ -192,18 +167,9 @@ make test
 make fuzz
 ```
 
-### Building
-
-```bash
-go build -o pastebin ./cmd/pastebin
-```
-
 ### Releasing
 
 Releases are automated via GitHub Actions. To create a new release:
-
-1. Ensure all changes are committed and pushed to the main branch
-2. Create and push a version tag:
 
 ```bash
 git tag v1.0.0
@@ -215,12 +181,6 @@ The release workflow will automatically:
 - Build binaries for Linux (amd64, arm64) and macOS (amd64, arm64)
 - Build and push multi-arch Docker images to `ghcr.io`
 - Create a GitHub release with binaries and checksums
-
-Docker images are tagged with:
-- Full version (e.g., `v1.0.0`)
-- Minor version (e.g., `1.0`)
-- Major version (e.g., `1`)
-- Git SHA
 
 ## License
 

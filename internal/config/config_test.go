@@ -1,14 +1,13 @@
 package config
 
 import (
-	"os"
 	"testing"
 	"time"
 )
 
 func TestLoad_RequiredS3Bucket(t *testing.T) {
 	// Clear any existing PASTEBIN_S3_BUCKET
-	os.Unsetenv("PASTEBIN_S3_BUCKET")
+	t.Setenv("PASTEBIN_S3_BUCKET", "")
 
 	_, err := Load()
 	if err == nil {
@@ -17,8 +16,7 @@ func TestLoad_RequiredS3Bucket(t *testing.T) {
 }
 
 func TestLoad_Defaults(t *testing.T) {
-	os.Setenv("PASTEBIN_S3_BUCKET", "test-bucket")
-	defer os.Unsetenv("PASTEBIN_S3_BUCKET")
+	t.Setenv("PASTEBIN_S3_BUCKET", "test-bucket")
 
 	cfg, err := Load()
 	if err != nil {
@@ -77,8 +75,7 @@ func TestLoad_CustomValues(t *testing.T) {
 	}
 
 	for k, v := range envVars {
-		os.Setenv(k, v)
-		defer os.Unsetenv(k)
+		t.Setenv(k, v)
 	}
 
 	cfg, err := Load()

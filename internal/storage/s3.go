@@ -140,7 +140,7 @@ func (s *S3Storage) Get(ctx context.Context, checksum string) (*paste.Paste, *pa
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get paste: %w", err)
 	}
-	defer pasteResult.Body.Close()
+	defer func() { _ = pasteResult.Body.Close() }()
 
 	content, err := io.ReadAll(pasteResult.Body)
 	if err != nil {
@@ -162,7 +162,7 @@ func (s *S3Storage) Get(ctx context.Context, checksum string) (*paste.Paste, *pa
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get metadata: %w", err)
 	}
-	defer metaResult.Body.Close()
+	defer func() { _ = metaResult.Body.Close() }()
 
 	var meta paste.Meta
 	if err := json.NewDecoder(metaResult.Body).Decode(&meta); err != nil {
@@ -244,7 +244,7 @@ func (s *S3Storage) fetchMeta(ctx context.Context, key *string) (*paste.Meta, er
 	if err != nil {
 		return nil, err
 	}
-	defer result.Body.Close()
+	defer func() { _ = result.Body.Close() }()
 
 	var meta paste.Meta
 	if err := json.NewDecoder(result.Body).Decode(&meta); err != nil {

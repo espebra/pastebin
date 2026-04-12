@@ -5,10 +5,11 @@ BUILD_DIR=bin
 
 # Go commands
 GOCMD=go
-GOBUILD=$(GOCMD) build
-GOTEST=$(GOCMD) test
+GOFLAGS=-mod=vendor
+GOBUILD=$(GOCMD) build $(GOFLAGS)
+GOTEST=$(GOCMD) test $(GOFLAGS)
 GOMOD=$(GOCMD) mod
-GOVET=$(GOCMD) vet
+GOVET=$(GOCMD) vet $(GOFLAGS)
 
 # Version from git tag (commit info is embedded automatically by Go)
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "")

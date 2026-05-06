@@ -425,6 +425,34 @@ func TestHandleHealth(t *testing.T) {
 	}
 }
 
+func TestHandleRobots(t *testing.T) {
+	cfg := &config.Config{}
+
+	h, err := New(cfg, nil, mockTemplateFS())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/robots.txt", nil)
+	rec := httptest.NewRecorder()
+
+	h.handleRobots(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", rec.Code)
+	}
+
+	body := rec.Body.String()
+	if body != "User-agent: *\nDisallow: /\n" {
+		t.Errorf("unexpected robots.txt body: %q", body)
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if contentType != "text/plain; charset=utf-8" {
+		t.Errorf("expected Content-Type 'text/plain; charset=utf-8', got %q", contentType)
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	// Create a simple handler to wrap
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -443,6 +471,7 @@ func TestSecurityHeaders(t *testing.T) {
 		"X-Frame-Options":        "DENY",
 		"X-XSS-Protection":       "1; mode=block",
 		"Referrer-Policy":        "strict-origin-when-cross-origin",
+		"X-Robots-Tag":           "noindex, nofollow, noarchive, nosnippet",
 	}
 
 	for header, expected := range expectedHeaders {

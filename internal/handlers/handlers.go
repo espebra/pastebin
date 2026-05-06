@@ -80,6 +80,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, staticFS fs.FS) http.Handle
 	// Health endpoint
 	mux.HandleFunc("GET /health", h.handleHealth)
 
+	// robots.txt
+	mux.HandleFunc("GET /robots.txt", h.handleRobots)
+
 	// Application routes
 	mux.HandleFunc("GET /{$}", h.handleIndex)
 	mux.HandleFunc("POST /{$}", h.handleCreate)
@@ -98,6 +101,7 @@ func securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive, nosnippet")
 		next.ServeHTTP(w, r)
 	})
 }
@@ -107,6 +111,12 @@ func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (h *Handler) handleRobots(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("User-agent: *\nDisallow: /\n"))
 }
 
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {

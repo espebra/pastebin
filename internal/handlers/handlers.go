@@ -14,6 +14,7 @@ import (
 	"github.com/espebra/pastebin/internal/csrf"
 	"github.com/espebra/pastebin/internal/paste"
 	"github.com/espebra/pastebin/internal/storage"
+	"github.com/espebra/pastebin/internal/version"
 )
 
 const (
@@ -37,16 +38,27 @@ type Handler struct {
 	cfg       *config.Config
 	storage   *storage.S3Storage
 	templates *template.Template
+	build     BuildInfo
+}
+
+// BuildInfo identifies the running build for display in the page header.
+// It is embedded in every template data struct, since the header is shown
+// on every page.
+type BuildInfo struct {
+	Version string
+	Commit  string
 }
 
 // IndexData is the data passed to the index template
 type IndexData struct {
+	BuildInfo
 	TTLOptions []paste.TTLOption
 	CSRFToken  string
 }
 
 // PasteData is the data passed to the paste view template
 type PasteData struct {
+	BuildInfo
 	Checksum   string
 	Content    string
 	CreatedAt  string
@@ -64,10 +76,16 @@ func New(cfg *config.Config, storage *storage.S3Storage, templateFS fs.FS) (*Han
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
 	}
 
+	build := version.Get()
+
 	return &Handler{
 		cfg:       cfg,
 		storage:   storage,
 		templates: tmpl,
+		build: BuildInfo{
+			Version: build.Version,
+			Commit:  build.Commitish(),
+		},
 	}, nil
 }
 
@@ -129,6 +147,7 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 	csrf.SetCookie(w, token, h.cfg.SecureCookies)
 
 	data := IndexData{
+		BuildInfo:  h.build,
 		TTLOptions: paste.TTLOptions(h.cfg.DefaultTTL),
 		CSRFToken:  token,
 	}
@@ -221,6 +240,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Debug("paste not found", "checksum", checksum, "error", err)
 		data := PasteData{
+			BuildInfo: h.build,
 			Checksum:  checksum,
 			Error:     "Paste not found or has expired",
 			CSRFToken: token,
@@ -238,6 +258,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 		_ = h.storage.Delete(ctx, checksum)
 		slog.Info("deleted expired paste on access", "checksum", checksum)
 		data := PasteData{
+			BuildInfo: h.build,
 			Checksum:  checksum,
 			Error:     "Paste has expired",
 			CSRFToken: token,
@@ -250,6 +271,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PasteData{
+		BuildInfo:  h.build,
 		Checksum:   checksum,
 		Content:    p.Content,
 		CreatedAt:  meta.CreatedAt.Format(time.RFC3339),

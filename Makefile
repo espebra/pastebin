@@ -15,7 +15,7 @@ GOVET=$(GOCMD) vet $(GOFLAGS)
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo "")
 
 # Build flags
-LDFLAGS=-ldflags="-s -w -X main.Version=$(VERSION)"
+LDFLAGS=-ldflags="-s -w -X github.com/espebra/pastebin/internal/version.Version=$(VERSION)"
 
 build:
 	@mkdir -p $(BUILD_DIR)

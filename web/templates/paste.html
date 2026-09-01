@@ -29,6 +29,9 @@
         }
 
         header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
             padding: 1rem 1.5rem;
             border-bottom: 1px solid var(--border);
         }
@@ -38,6 +41,14 @@
             text-decoration: none;
             font-weight: 600;
             font-size: 1.1rem;
+        }
+
+        /* Build identity: present for reference, not for reading. */
+        .build {
+            margin-left: auto;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--muted);
         }
 
         main {
@@ -269,7 +280,10 @@
     </style>
 </head>
 <body>
-    <header><a href="/">Pastebin</a></header>
+    <header>
+        <a href="/">Pastebin</a>
+        {{if .Version}}<span class="build">{{.Version}} &middot; {{.Commit}}</span>{{end}}
+    </header>
 
     <main>
         {{if .Error}}

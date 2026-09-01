@@ -83,6 +83,16 @@
             padding: 0 12px;
         }
 
+        /* Off-screen copy of the textarea, used to measure how many visual rows
+           each logical line occupies once it soft-wraps. */
+        .line-mirror {
+            position: absolute;
+            top: 0;
+            left: -9999px;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
         textarea {
             flex: 1;
             padding: 12px;
@@ -198,11 +208,46 @@
         const textarea = document.getElementById('content');
         const lines = document.getElementById('lines');
 
+        // A line can wrap across several visual rows, so each number is given
+        // the height of its line as rendered. The mirror is an off-screen block
+        // element with the textarea's typography and content width, which makes
+        // it wrap at exactly the same columns.
+        const mirror = document.createElement('div');
+        mirror.className = 'line-mirror';
+        mirror.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(mirror);
+
+        const mirroredStyles = [
+            'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing',
+            'wordSpacing', 'textIndent', 'textTransform', 'lineHeight',
+            'whiteSpace', 'overflowWrap', 'wordBreak', 'tabSize'
+        ];
+
+        function syncMirror() {
+            const style = getComputedStyle(textarea);
+            for (const prop of mirroredStyles) mirror.style[prop] = style[prop];
+            // clientWidth excludes the scrollbar, so subtracting the padding
+            // leaves the width the text actually wraps within.
+            const width = textarea.clientWidth
+                - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+            mirror.style.width = Math.max(width, 0) + 'px';
+        }
+
         function updateLines() {
-            const count = textarea.value.split('\n').length;
-            const html = [];
-            for (let i = 1; i <= count; i++) html.push('<span>' + i + '</span>');
-            lines.innerHTML = html.join('');
+            syncMirror();
+            const rows = textarea.value.split('\n');
+
+            mirror.textContent = '';
+            for (const row of rows) {
+                const div = document.createElement('div');
+                // An empty line still occupies one row.
+                div.textContent = row === '' ? ' ' : row;
+                mirror.appendChild(div);
+            }
+
+            lines.innerHTML = rows.map((_, i) =>
+                '<span style="height:' + mirror.children[i].offsetHeight + 'px">'
+                + (i + 1) + '</span>').join('');
         }
 
         function copyToClipboard() {
@@ -213,8 +258,23 @@
             });
         }
 
+        // Wrapping depends on the width, so recompute when it changes. The
+        // width guard keeps the observer from looping when a wider gutter (say,
+        // line 9 becoming line 10) shrinks the textarea in turn.
+        let lastWidth = -1;
+        function updateOnResize() {
+            if (textarea.clientWidth === lastWidth) return;
+            lastWidth = textarea.clientWidth;
+            updateLines();
+        }
+
         textarea.addEventListener('input', updateLines);
         textarea.addEventListener('scroll', () => lines.scrollTop = textarea.scrollTop);
+        if (window.ResizeObserver) {
+            new ResizeObserver(updateOnResize).observe(textarea);
+        } else {
+            window.addEventListener('resize', updateOnResize);
+        }
         updateLines();
     </script>
 </body>

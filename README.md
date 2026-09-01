@@ -1,6 +1,6 @@
 [![CI](https://github.com/espebra/pastebin/actions/workflows/ci.yaml/badge.svg)](https://github.com/espebra/pastebin/actions/workflows/ci.yaml)
 [![Release](https://github.com/espebra/pastebin/actions/workflows/release.yaml/badge.svg)](https://github.com/espebra/pastebin/actions/workflows/release.yaml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/espebra/stupid-simple-s3.svg)](https://pkg.go.dev/github.com/espebra/stupid-simple-s3)
+[![Go Reference](https://pkg.go.dev/badge/github.com/espebra/pastebin.svg)](https://pkg.go.dev/github.com/espebra/pastebin)
 
 # Pastebin
 

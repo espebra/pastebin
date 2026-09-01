@@ -1,0 +1,34 @@
+version: 2
+
+updates:
+  # Go module dependencies. vendor/ is updated in the same pull request.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # The AWS SDK is released as many small modules that move together.
+      # Grouping them keeps a routine SDK bump to one pull request instead
+      # of a dozen.
+      aws-sdk-go-v2:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2*"
+          - "github.com/aws/smithy-go"
+
+  # The golang base image in the Dockerfile. Go standard library fixes ship
+  # in the toolchain, so this is the update that keeps released images off a
+  # vulnerable stdlib.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"

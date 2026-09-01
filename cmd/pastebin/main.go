@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/handlers"
 	"github.com/espebra/pastebin/internal/storage"
+	"github.com/espebra/pastebin/internal/version"
 	"github.com/espebra/pastebin/web"
 )
 
@@ -36,48 +36,8 @@ func main() {
 	}
 }
 
-// Version can be set via ldflags for release builds (e.g., -X main.Version=v1.0.0)
-var Version = ""
-
-// getVersionInfo returns version, commit hash, and modified status
-func getVersionInfo() (version, commit, modified string) {
-	version = Version
-	commit = "unknown"
-	modified = ""
-
-	if info, ok := debug.ReadBuildInfo(); ok {
-		for _, setting := range info.Settings {
-			switch setting.Key {
-			case "vcs.revision":
-				commit = setting.Value
-				if len(commit) > 7 {
-					commit = commit[:7]
-				}
-			case "vcs.modified":
-				if setting.Value == "true" {
-					modified = "-dirty"
-				}
-			}
-		}
-		if version == "" {
-			v := info.Main.Version
-			// Use module version only if it's a proper semver tag, not a pseudo-version
-			// Pseudo-versions look like v0.0.0-20060102150405-abcdef123456
-			isPseudo := strings.HasPrefix(v, "v0.0.0-") || strings.Contains(v, "-0.")
-			if v != "" && v != "(devel)" && !isPseudo {
-				version = v
-			} else {
-				version = "dev"
-			}
-		}
-	}
-
-	return version, commit, modified
-}
-
 func printVersion() {
-	version, commit, modified := getVersionInfo()
-	fmt.Printf("pastebin %s (commit: %s%s)\n", version, commit, modified)
+	fmt.Printf("pastebin %s\n", version.Get())
 }
 
 func run() error {
@@ -91,8 +51,8 @@ func run() error {
 	configureLogger(cfg.LogFormat, cfg.LogLevel)
 
 	// Log version information at startup
-	version, commit, modified := getVersionInfo()
-	slog.Info("starting pastebin", "version", version, "commit", commit+modified)
+	build := version.Get()
+	slog.Info("starting pastebin", "version", build.Version, "commit", build.Commitish())
 
 	// Log configuration (without secrets)
 	slog.Info("configuration loaded",

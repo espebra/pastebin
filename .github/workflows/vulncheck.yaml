@@ -6,6 +6,9 @@
 # the next push.
 name: Scheduled Vulnerability Check
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # Mondays at 07:00 UTC.

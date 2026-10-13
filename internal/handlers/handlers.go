@@ -100,7 +100,11 @@ func New(cfg *config.Config, storage *storage.S3Storage, templateFS fs.FS) (*Han
 // and returns a handler wrapped with security headers middleware
 func (h *Handler) RegisterRoutes(mux *http.ServeMux, staticFS fs.FS) http.Handler {
 	// Static files
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(staticFS)))
+	staticHandler := http.StripPrefix("/static/", http.FileServerFS(staticFS))
+	mux.HandleFunc("GET /static/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		staticHandler.ServeHTTP(w, r)
+	})
 
 	// Health endpoint
 	mux.HandleFunc("GET /health", h.handleHealth)
@@ -306,18 +310,21 @@ func securityHeaders(next http.Handler) http.Handler {
 
 // handleHealth returns a simple health check response
 func (h *Handler) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }
 
 func (h *Handler) handleRobots(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("User-agent: *\nDisallow: /\n"))
 }
 
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	token, err := csrf.GenerateToken()
 	if err != nil {
 		slog.ErrorContext(r.Context(), "failed to generate CSRF token", "error", err)
@@ -332,7 +339,6 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 		CSRFToken:  token,
 	}
 
-	w.Header().Set("Cache-Control", "no-cache")
 	if err := h.templates.ExecuteTemplate(w, "index.html", data); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute index template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -340,6 +346,7 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	// Limit request body size to prevent memory exhaustion
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 
@@ -399,6 +406,7 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	checksum := r.PathValue("checksum")
 	if checksum == "" || !isValidChecksum(checksum) {
 		http.Error(w, "Not Found", http.StatusNotFound)
@@ -464,7 +472,6 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 		CSRFToken:  token,
 	}
 
-	w.Header().Set("Cache-Control", "no-cache")
 	if err := h.templates.ExecuteTemplate(w, "paste.html", data); err != nil {
 		slog.ErrorContext(r.Context(), "failed to execute paste template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -472,6 +479,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleRaw(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	checksum := r.PathValue("checksum")
 	if checksum == "" || !isValidChecksum(checksum) {
 		http.Error(w, "Not Found", http.StatusNotFound)
@@ -496,11 +504,11 @@ func (h *Handler) handleRaw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache")
 	_, _ = w.Write([]byte(p.Content))
 }
 
 func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
 	// Limit request body size
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 

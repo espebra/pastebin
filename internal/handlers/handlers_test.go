@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"net/url"
 	"strings"
 	"testing"
@@ -12,6 +16,7 @@ import (
 
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/csrf"
+	"github.com/espebra/pastebin/internal/requestid"
 )
 
 // mockTemplateFS creates a minimal template filesystem for testing
@@ -479,6 +484,203 @@ func TestSecurityHeaders(t *testing.T) {
 		if actual != expected {
 			t.Errorf("expected %s header to be %q, got %q", header, expected, actual)
 		}
+	}
+}
+
+// captureLogs redirects the default logger to a buffer for the duration of
+// the test, using the same request ID log handler as the application
+func captureLogs(t *testing.T, level slog.Level) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	orig := slog.Default()
+	handler := slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: level})
+	slog.SetDefault(slog.New(requestid.NewLogHandler(handler)))
+	t.Cleanup(func() { slog.SetDefault(orig) })
+	return &buf
+}
+
+func parseLogLines(t *testing.T, buf *bytes.Buffer) []map[string]any {
+	t.Helper()
+	var entries []map[string]any
+	for _, line := range bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n")) {
+		if len(line) == 0 {
+			continue
+		}
+		var entry map[string]any
+		if err := json.Unmarshal(line, &entry); err != nil {
+			t.Fatalf("failed to parse log entry %q: %v", line, err)
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func TestAccessLog(t *testing.T) {
+	buf := captureLogs(t, slog.LevelInfo)
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		slog.InfoContext(r.Context(), "inner")
+		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusInternalServerError) // ignored by net/http
+		_, _ = w.Write([]byte("not found"))
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/abc?x=1", strings.NewReader("content=hello"))
+	req.RemoteAddr = "192.0.2.1:1234"
+	req.Header.Set("User-Agent", "test-agent")
+	req.Header.Set("Referer", "http://example.com/")
+	rec := httptest.NewRecorder()
+	accessLog(nil, inner).ServeHTTP(rec, req)
+
+	entries := parseLogLines(t, buf)
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 log entries, got %d: %s", len(entries), buf.String())
+	}
+	innerEntry, entry := entries[0], entries[1]
+
+	id := rec.Header().Get(requestid.Header)
+	if !requestid.Valid(id) {
+		t.Fatalf("expected a valid request ID response header, got %q", id)
+	}
+
+	expected := map[string]any{
+		"level":      "INFO",
+		"msg":        "request",
+		"method":     "POST",
+		"path":       "/abc?x=1",
+		"proto":      "HTTP/1.1",
+		"status":     float64(http.StatusNotFound),
+		"bytes_in":   float64(len("content=hello")),
+		"bytes_out":  float64(len("not found")),
+		"client_ip":  "192.0.2.1",
+		"user_agent": "test-agent",
+		"referer":    "http://example.com/",
+		"request_id": id,
+	}
+	for key, want := range expected {
+		if got := entry[key]; got != want {
+			t.Errorf("expected %s to be %v, got %v", key, want, got)
+		}
+	}
+	if _, ok := entry["duration_ms"]; !ok {
+		t.Error("expected duration_ms field")
+	}
+	if innerEntry["request_id"] != id {
+		t.Errorf("expected handler log entry to carry request ID %s, got %v", id, innerEntry["request_id"])
+	}
+}
+
+func TestAccessLog_IncomingRequestID(t *testing.T) {
+	tests := []struct {
+		name     string
+		incoming string
+		keep     bool
+	}{
+		{"valid", "abc-123", true},
+		{"invalid", "abc 123\n", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := captureLogs(t, slog.LevelInfo)
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Header.Set(requestid.Header, tt.incoming)
+			rec := httptest.NewRecorder()
+			accessLog(nil, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})).ServeHTTP(rec, req)
+
+			id := rec.Header().Get(requestid.Header)
+			if tt.keep && id != tt.incoming {
+				t.Errorf("expected incoming request ID %q to be kept, got %q", tt.incoming, id)
+			}
+			if !tt.keep && (id == tt.incoming || !requestid.Valid(id)) {
+				t.Errorf("expected incoming request ID %q to be replaced, got %q", tt.incoming, id)
+			}
+			if got := parseLogLines(t, buf)[0]["request_id"]; got != id {
+				t.Errorf("expected logged request ID %q, got %v", id, got)
+			}
+		})
+	}
+}
+
+func TestAccessLog_Panic(t *testing.T) {
+	buf := captureLogs(t, slog.LevelInfo)
+
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom")
+	})
+
+	func() {
+		defer func() {
+			if p := recover(); p != "boom" {
+				t.Errorf("expected panic to be re-raised, got %v", p)
+			}
+		}()
+		accessLog(nil, inner).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+	}()
+
+	entries := parseLogLines(t, buf)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	if entries[0]["level"] != "ERROR" || entries[0]["status"] != float64(http.StatusInternalServerError) || entries[0]["panic"] != "boom" {
+		t.Errorf("unexpected log entry for panic: %v", entries[0])
+	}
+}
+
+func TestAccessLog_HealthAtDebug(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	buf := captureLogs(t, slog.LevelInfo)
+	accessLog(nil, inner).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/health", nil))
+	if buf.Len() != 0 {
+		t.Errorf("expected no log entry at info level, got %q", buf.String())
+	}
+
+	buf = captureLogs(t, slog.LevelDebug)
+	accessLog(nil, inner).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/health", nil))
+	entries := parseLogLines(t, buf)
+	if len(entries) != 1 || entries[0]["level"] != "DEBUG" {
+		t.Errorf("expected one debug log entry, got %q", buf.String())
+	}
+}
+
+func TestClientIP(t *testing.T) {
+	trusted := []netip.Prefix{
+		netip.MustParsePrefix("10.0.0.0/8"),
+		netip.MustParsePrefix("::1/128"),
+	}
+
+	tests := []struct {
+		name       string
+		remoteAddr string
+		xff        []string
+		want       string
+	}{
+		{"direct client", "192.0.2.1:1234", nil, "192.0.2.1"},
+		{"direct client ignores XFF", "192.0.2.1:1234", []string{"198.51.100.1"}, "192.0.2.1"},
+		{"ipv6 client", "[2001:db8::1]:1234", nil, "2001:db8::1"},
+		{"trusted proxy without XFF", "10.0.0.1:1234", nil, "10.0.0.1"},
+		{"trusted proxy", "10.0.0.1:1234", []string{"198.51.100.1"}, "198.51.100.1"},
+		{"spoofed XFF", "10.0.0.1:1234", []string{"203.0.113.9, 198.51.100.1"}, "198.51.100.1"},
+		{"proxy chain", "10.0.0.1:1234", []string{"198.51.100.1, 10.0.0.2"}, "198.51.100.1"},
+		{"multiple headers", "10.0.0.1:1234", []string{"198.51.100.1", "10.0.0.2"}, "198.51.100.1"},
+		{"all trusted", "10.0.0.1:1234", []string{"10.0.0.3, 10.0.0.2"}, "10.0.0.3"},
+		{"garbage entry", "10.0.0.1:1234", []string{"garbage, 10.0.0.2"}, "10.0.0.2"},
+		{"ipv6 trusted proxy", "[::1]:1234", []string{"198.51.100.1"}, "198.51.100.1"},
+		{"no port", "192.0.2.1", nil, "192.0.2.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			for _, v := range tt.xff {
+				req.Header.Add("X-Forwarded-For", v)
+			}
+			if got := clientIP(req, trusted); got != tt.want {
+				t.Errorf("expected %s, got %s", tt.want, got)
+			}
+		})
 	}
 }
 

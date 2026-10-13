@@ -5,14 +5,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/csrf"
 	"github.com/espebra/pastebin/internal/paste"
+	"github.com/espebra/pastebin/internal/requestid"
 	"github.com/espebra/pastebin/internal/storage"
 	"github.com/espebra/pastebin/internal/version"
 )
@@ -108,8 +113,156 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, staticFS fs.FS) http.Handle
 	mux.HandleFunc("POST /delete/{checksum}", h.handleDelete)
 	mux.HandleFunc("GET /{checksum}", h.handleView)
 
-	// Wrap with security headers middleware
-	return securityHeaders(mux)
+	// Wrap with security headers and access log middleware
+	return accessLog(h.cfg.TrustedProxies, securityHeaders(mux))
+}
+
+// responseWriter records the status code and number of bytes written
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode   int
+	wroteHeader  bool
+	bytesWritten int64
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	// Only the first call takes effect, matching net/http
+	if !rw.wroteHeader {
+		rw.statusCode = code
+		rw.wroteHeader = true
+	}
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	rw.wroteHeader = true
+	n, err := rw.ResponseWriter.Write(b)
+	rw.bytesWritten += int64(n)
+	return n, err
+}
+
+// Unwrap allows http.ResponseController to reach the underlying writer
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
+
+// countingBody records the number of request body bytes read
+type countingBody struct {
+	io.ReadCloser
+	bytesRead int64
+}
+
+func (b *countingBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	b.bytesRead += int64(n)
+	return n, err
+}
+
+// accessLog assigns a request ID to each request and logs it using
+// structured logging when it completes
+func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		id := r.Header.Get(requestid.Header)
+		if !requestid.Valid(id) {
+			id = requestid.New()
+		}
+		w.Header().Set(requestid.Header, id)
+		r = r.WithContext(requestid.WithID(r.Context(), id))
+
+		body := &countingBody{ReadCloser: r.Body}
+		if r.Body != nil && r.Body != http.NoBody {
+			r.Body = body
+		}
+
+		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+		defer func() {
+			// Log health checks at debug level to reduce noise
+			level := slog.LevelInfo
+			if r.URL.Path == "/health" {
+				level = slog.LevelDebug
+			}
+
+			// A panic in the handler is logged before re-panicking so that
+			// net/http still aborts the connection as usual
+			p := recover()
+			if p != nil {
+				level = slog.LevelError
+				if !rw.wroteHeader {
+					rw.statusCode = http.StatusInternalServerError
+				}
+			}
+
+			attrs := []slog.Attr{
+				slog.String("client_ip", clientIP(r, trustedProxies)),
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.RequestURI()),
+				slog.String("proto", r.Proto),
+				slog.Int("status", rw.statusCode),
+				slog.Int64("bytes_in", body.bytesRead),
+				slog.Int64("bytes_out", rw.bytesWritten),
+				slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000),
+				slog.String("user_agent", r.UserAgent()),
+				slog.String("referer", r.Referer()),
+			}
+			if p != nil {
+				attrs = append(attrs, slog.Any("panic", p))
+			}
+			slog.LogAttrs(r.Context(), level, "request", attrs...)
+
+			if p != nil {
+				panic(p)
+			}
+		}()
+
+		next.ServeHTTP(rw, r)
+	})
+}
+
+// clientIP returns the IP address of the client. The X-Forwarded-For header
+// is only consulted when the request comes from a trusted proxy, and is then
+// walked from right to left until the first untrusted address is found.
+func clientIP(r *http.Request, trustedProxies []netip.Prefix) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+
+	addr, err := netip.ParseAddr(host)
+	if err != nil || !isTrusted(addr, trustedProxies) {
+		return host
+	}
+
+	var hops []string
+	for _, v := range r.Header.Values("X-Forwarded-For") {
+		hops = append(hops, strings.Split(v, ",")...)
+	}
+
+	client := host
+	for i := len(hops) - 1; i >= 0; i-- {
+		hop, err := netip.ParseAddr(strings.TrimSpace(hops[i]))
+		if err != nil {
+			// Unparseable entry, so stop at the last known good address
+			break
+		}
+		client = hop.Unmap().String()
+		if !isTrusted(hop, trustedProxies) {
+			break
+		}
+	}
+	return client
+}
+
+func isTrusted(addr netip.Addr, trustedProxies []netip.Prefix) bool {
+	addr = addr.Unmap()
+	for _, p := range trustedProxies {
+		if p.Contains(addr) {
+			return true
+		}
+	}
+	return false
 }
 
 // securityHeaders adds security headers to all responses
@@ -140,7 +293,7 @@ func (h *Handler) handleRobots(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 	token, err := csrf.GenerateToken()
 	if err != nil {
-		slog.Error("failed to generate CSRF token", "error", err)
+		slog.ErrorContext(r.Context(), "failed to generate CSRF token", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -154,7 +307,7 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 	if err := h.templates.ExecuteTemplate(w, "index.html", data); err != nil {
-		slog.Error("failed to execute index template", "error", err)
+		slog.ErrorContext(r.Context(), "failed to execute index template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
@@ -208,12 +361,12 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.storage.Store(ctx, p, meta); err != nil {
-		slog.Error("failed to store paste", "error", err)
+		slog.ErrorContext(r.Context(), "failed to store paste", "error", err)
 		http.Error(w, "Failed to store paste", http.StatusInternalServerError)
 		return
 	}
 
-	slog.Info("paste created", "checksum", p.Checksum, "size", meta.Size, "ttl", ttl.String())
+	slog.InfoContext(r.Context(), "paste created", "checksum", p.Checksum, "size", meta.Size, "ttl", ttl.String())
 	http.Redirect(w, r, "/"+p.Checksum, http.StatusSeeOther)
 }
 
@@ -227,7 +380,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 	// Generate CSRF token for forms on this page
 	token, err := csrf.GenerateToken()
 	if err != nil {
-		slog.Error("failed to generate CSRF token", "error", err)
+		slog.ErrorContext(r.Context(), "failed to generate CSRF token", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -238,7 +391,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 
 	p, meta, err := h.storage.Get(ctx, checksum)
 	if err != nil {
-		slog.Debug("paste not found", "checksum", checksum, "error", err)
+		slog.DebugContext(r.Context(), "paste not found", "checksum", checksum, "error", err)
 		data := PasteData{
 			BuildInfo: h.build,
 			Checksum:  checksum,
@@ -247,7 +400,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusNotFound)
 		if err := h.templates.ExecuteTemplate(w, "paste.html", data); err != nil {
-			slog.Error("failed to execute paste template", "error", err)
+			slog.ErrorContext(r.Context(), "failed to execute paste template", "error", err)
 		}
 		return
 	}
@@ -256,7 +409,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 	if meta.IsExpired() {
 		// Delete expired paste
 		_ = h.storage.Delete(ctx, checksum)
-		slog.Info("deleted expired paste on access", "checksum", checksum)
+		slog.InfoContext(r.Context(), "deleted expired paste on access", "checksum", checksum)
 		data := PasteData{
 			BuildInfo: h.build,
 			Checksum:  checksum,
@@ -265,7 +418,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusGone)
 		if err := h.templates.ExecuteTemplate(w, "paste.html", data); err != nil {
-			slog.Error("failed to execute paste template", "error", err)
+			slog.ErrorContext(r.Context(), "failed to execute paste template", "error", err)
 		}
 		return
 	}
@@ -283,7 +436,7 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Cache-Control", "no-cache")
 	if err := h.templates.ExecuteTemplate(w, "paste.html", data); err != nil {
-		slog.Error("failed to execute paste template", "error", err)
+		slog.ErrorContext(r.Context(), "failed to execute paste template", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
@@ -346,11 +499,11 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.storage.Delete(ctx, checksum); err != nil {
-		slog.Error("failed to delete paste", "checksum", checksum, "error", err)
+		slog.ErrorContext(r.Context(), "failed to delete paste", "checksum", checksum, "error", err)
 		http.Error(w, "Failed to delete paste", http.StatusInternalServerError)
 		return
 	}
 
-	slog.Info("paste deleted", "checksum", checksum)
+	slog.InfoContext(r.Context(), "paste deleted", "checksum", checksum)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

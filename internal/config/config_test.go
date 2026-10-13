@@ -72,6 +72,7 @@ func TestLoad_CustomValues(t *testing.T) {
 		"PASTEBIN_MAX_PASTE_SIZE":   "2097152",
 		"PASTEBIN_DEFAULT_TTL":      "48h",
 		"PASTEBIN_SECURE_COOKIES":   "true",
+		"PASTEBIN_TRUSTED_PROXIES":  "10.0.0.0/8, 192.168.1.1,::1",
 	}
 
 	for k, v := range envVars {
@@ -121,6 +122,19 @@ func TestLoad_CustomValues(t *testing.T) {
 
 	if !cfg.SecureCookies {
 		t.Error("expected SecureCookies to be true")
+	}
+
+	if got := cfg.TrustedProxiesString(); got != "10.0.0.0/8,192.168.1.1/32,::1/128" {
+		t.Errorf("expected trusted proxies 10.0.0.0/8,192.168.1.1/32,::1/128, got %s", got)
+	}
+}
+
+func TestLoad_InvalidTrustedProxies(t *testing.T) {
+	t.Setenv("PASTEBIN_S3_BUCKET", "test-bucket")
+	t.Setenv("PASTEBIN_TRUSTED_PROXIES", "10.0.0.0/8,not-an-ip")
+
+	if _, err := Load(); err == nil {
+		t.Error("expected error for invalid PASTEBIN_TRUSTED_PROXIES")
 	}
 }
 

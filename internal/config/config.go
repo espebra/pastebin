@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,6 +24,7 @@ type Config struct {
 	LogFormat       string
 	LogLevel        string
 	SecureCookies   bool
+	TrustedProxies  []netip.Prefix
 }
 
 func Load() (*Config, error) {
@@ -46,6 +49,12 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("PASTEBIN_S3_BUCKET environment variable is required")
 	}
 
+	proxies, err := parsePrefixes(os.Getenv("PASTEBIN_TRUSTED_PROXIES"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid PASTEBIN_TRUSTED_PROXIES: %w", err)
+	}
+	cfg.TrustedProxies = proxies
+
 	return cfg, nil
 }
 
@@ -55,6 +64,42 @@ func (c *Config) S3EndpointURL() string {
 		scheme = "http"
 	}
 	return fmt.Sprintf("%s://%s", scheme, c.S3Endpoint)
+}
+
+// TrustedProxiesString returns the trusted proxies as a comma separated list
+func (c *Config) TrustedProxiesString() string {
+	s := make([]string, len(c.TrustedProxies))
+	for i, p := range c.TrustedProxies {
+		s[i] = p.String()
+	}
+	return strings.Join(s, ",")
+}
+
+// parsePrefixes parses a comma separated list of IP addresses and CIDR
+// prefixes. A plain IP address is treated as a single address prefix.
+func parsePrefixes(val string) ([]netip.Prefix, error) {
+	var prefixes []netip.Prefix
+	for _, field := range strings.Split(val, ",") {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		if strings.Contains(field, "/") {
+			p, err := netip.ParsePrefix(field)
+			if err != nil {
+				return nil, err
+			}
+			prefixes = append(prefixes, p.Masked())
+			continue
+		}
+		addr, err := netip.ParseAddr(field)
+		if err != nil {
+			return nil, err
+		}
+		addr = addr.Unmap()
+		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	return prefixes, nil
 }
 
 func getEnv(key, defaultVal string) string {

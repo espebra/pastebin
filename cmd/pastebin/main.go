@@ -16,6 +16,7 @@ import (
 	"github.com/espebra/pastebin/internal/cleanup"
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/handlers"
+	"github.com/espebra/pastebin/internal/requestid"
 	"github.com/espebra/pastebin/internal/storage"
 	"github.com/espebra/pastebin/internal/version"
 	"github.com/espebra/pastebin/web"
@@ -65,6 +66,7 @@ func run() error {
 		"cleanup_interval", cfg.CleanupInterval.String(),
 		"max_paste_size", cfg.MaxPasteSize,
 		"default_ttl", cfg.DefaultTTL.String(),
+		"trusted_proxies", cfg.TrustedProxiesString(),
 	)
 
 	// Initialize S3 storage
@@ -161,7 +163,7 @@ func configureLogger(format, level string) {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	}
 
-	slog.SetDefault(slog.New(handler))
+	slog.SetDefault(slog.New(requestid.NewLogHandler(handler)))
 }
 
 // parseLogLevel converts a string log level to slog.Level

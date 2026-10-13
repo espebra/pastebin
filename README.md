@@ -119,6 +119,7 @@ The service is configured using environment variables:
 | `PASTEBIN_LOG_FORMAT` | Log format (`text` or `json`) | `text` |
 | `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
+| `PASTEBIN_TRUSTED_PROXIES` | Comma separated IPs/CIDRs of reverse proxies whose `X-Forwarded-For` header is trusted when logging the client IP | (none) |
 
 ## Check current version
 

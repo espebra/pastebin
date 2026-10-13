@@ -112,6 +112,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux, staticFS fs.FS) http.Handle
 	// robots.txt
 	mux.HandleFunc("GET /robots.txt", h.handleRobots)
 
+	// favicon.ico, served from the static files
+	mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		http.ServeFileFS(w, r, staticFS, "favicon.ico")
+	})
+
 	// Application routes
 	mux.HandleFunc("GET /{$}", h.handleIndex)
 	mux.HandleFunc("POST /{$}", h.handleCreate)

@@ -464,6 +464,45 @@ func TestHandleRobots(t *testing.T) {
 	}
 }
 
+func TestFavicon(t *testing.T) {
+	cfg := &config.Config{}
+
+	h, err := New(cfg, nil, mockTemplateFS())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	icon := []byte("\x00\x00\x01\x00fake-icon")
+	staticFS := fstest.MapFS{
+		"favicon.ico": &fstest.MapFile{Data: icon},
+	}
+
+	mux := http.NewServeMux()
+	wrapped := h.RegisterRoutes(mux, staticFS)
+
+	req := httptest.NewRequest(http.MethodGet, "/favicon.ico", nil)
+	rec := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+
+	if rec.Body.String() != string(icon) {
+		t.Errorf("unexpected favicon body: %q", rec.Body.String())
+	}
+
+	contentType := rec.Header().Get("Content-Type")
+	if contentType != "image/vnd.microsoft.icon" && contentType != "image/x-icon" {
+		t.Errorf("expected icon Content-Type, got %q", contentType)
+	}
+
+	if cc := rec.Header().Get("Cache-Control"); cc != "public, max-age=86400" {
+		t.Errorf("expected Cache-Control 'public, max-age=86400', got %q", cc)
+	}
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	// Create a simple handler to wrap
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

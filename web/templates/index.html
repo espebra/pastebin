@@ -167,6 +167,11 @@
 
         .spacer { flex: 1; }
 
+        .note {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
         button[type="submit"] {
             padding: 8px 16px;
             font-size: 14px;
@@ -213,6 +218,7 @@
                     </select>
                 </label>
                 <span class="spacer"></span>
+                <small class="note">Pastes should not contain secrets</small>
                 <button type="submit">Save</button>
             </div>
         </form>

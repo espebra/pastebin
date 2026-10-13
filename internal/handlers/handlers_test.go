@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/csrf"
 	"github.com/espebra/pastebin/internal/requestid"
+	"github.com/espebra/pastebin/internal/storage"
 )
 
 // mockTemplateFS creates a minimal template filesystem for testing
@@ -642,6 +644,44 @@ func TestAccessLog_HealthAtDebug(t *testing.T) {
 	entries := parseLogLines(t, buf)
 	if len(entries) != 1 || entries[0]["level"] != "DEBUG" {
 		t.Errorf("expected one debug log entry, got %q", buf.String())
+	}
+}
+
+func TestAccessLog_S3RequestIDs(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("x-amz-request-id", "s3-"+r.Method)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	s, err := storage.New(context.Background(), strings.TrimPrefix(server.URL, "http://"), "us-east-1", "test-bucket", "key", "secret", false)
+	if err != nil {
+		t.Fatalf("failed to create storage: %v", err)
+	}
+
+	buf := captureLogs(t, slog.LevelInfo)
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = s.Delete(r.Context(), "abc123")
+	})
+	accessLog(nil, inner).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/delete/abc123", nil))
+
+	entries := parseLogLines(t, buf)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 log entry, got %d", len(entries))
+	}
+	ids, _ := entries[0]["s3_request_ids"].([]any)
+	if len(ids) != 2 || ids[0] != "s3-DELETE" || ids[1] != "s3-DELETE" {
+		t.Errorf("expected two S3 request IDs, got %v", entries[0]["s3_request_ids"])
+	}
+}
+
+func TestAccessLog_NoS3RequestIDs(t *testing.T) {
+	buf := captureLogs(t, slog.LevelInfo)
+	accessLog(nil, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
+
+	entries := parseLogLines(t, buf)
+	if _, ok := entries[0]["s3_request_ids"]; ok {
+		t.Errorf("expected no s3_request_ids attribute, got %v", entries[0]["s3_request_ids"])
 	}
 }
 

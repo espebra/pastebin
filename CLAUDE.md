@@ -6,7 +6,7 @@ Pastebin is a web service that makes it easy to paste and share text with other 
 - Each paste is stored as a separate object in S3.
 - Meta data about each paste is also stored in S3.
 - The name of each paste is the SHA256 checksum of the content.
-- The name of echo paste is used in the URL.
+- The name of each paste is used in the URL.
 - Each paste has a configurable time to live. The time to live is set when
   the paste is created.
 - Each paste can be deleted manually from the page of the paste.

@@ -15,7 +15,7 @@ services:
       PASTEBIN_S3_SECRET_KEY: "pastebin-secret-key"
       PASTEBIN_CLEANUP_INTERVAL: "1h"
       PASTEBIN_MAX_PASTE_SIZE: "1048576"
-      PASTEBIN_DEFAULT_TTL: "1y"
+      PASTEBIN_DEFAULT_TTL: "8760h"
       PASTEBIN_LOG_FORMAT: "text"
       PASTEBIN_LOG_LEVEL: "info"
     depends_on:

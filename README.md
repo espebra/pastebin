@@ -33,7 +33,6 @@ docker run -p 8080:8080 \
 ### Running with Docker Compose
 
 ```yaml
-version: "3"
 services:
   s3:
     image: ghcr.io/espebra/stupid-simple-s3:latest
@@ -140,6 +139,8 @@ The service is configured using environment variables:
 | GET | `/raw/{checksum}` | View raw paste content |
 | POST | `/delete/{checksum}` | Delete a paste |
 | GET | `/health` | Health check endpoint |
+| GET | `/robots.txt` | Disallows all crawlers |
+| GET | `/static/...` | Static assets (CSS, images) |
 
 Prometheus metrics are served on a separate port, see [Metrics](#metrics).
 
@@ -178,6 +179,12 @@ curl http://localhost:9091/metrics
 | `pastebin_cleanup_last_success_timestamp_seconds` | When a cleanup run last completed without error |
 
 Go runtime (`go_*`) and process (`process_*`) metrics are included as well.
+
+### Grafana dashboard
+
+A Grafana dashboard for these metrics is included in
+[`grafana/pastebin.json`](grafana/pastebin.json). Import it in Grafana under
+*Dashboards → New → Import* and select your Prometheus data source.
 
 ### Kubernetes
 
@@ -268,6 +275,39 @@ Prometheus installation. Without the Prometheus Operator, add the
 `prometheus.io/scrape: "true"`, `prometheus.io/port: "9091"` and
 `prometheus.io/path: /metrics` pod annotations instead of the `PodMonitor`,
 if your scrape configuration uses them.
+
+## Logging
+
+Logs are written to standard output, as `text` or `json` depending on
+`PASTEBIN_LOG_FORMAT`.
+
+### Request IDs
+
+Every request is given a request ID, which is returned to the client in the
+`X-Request-ID` response header and attached as `request_id` to every log line
+written while handling the request. If the client (or a reverse proxy) sends
+an `X-Request-ID` header, that ID is used instead, as long as it is at most 64
+characters and consists only of letters, digits, `-`, `_` and `.`. Otherwise a
+new random ID is generated.
+
+### Access log
+
+One log line with the message `request` is written for each request, with the
+following fields:
+
+| Field | Description |
+|-------|-------------|
+| `request_id` | The request ID, see above |
+| `client_ip` | Client IP address. Taken from `X-Forwarded-For` only when the connection comes from one of `PASTEBIN_TRUSTED_PROXIES` |
+| `method`, `path`, `proto` | The request line |
+| `status` | Response status code |
+| `bytes_in`, `bytes_out` | Request and response body sizes |
+| `duration_ms` | Time spent handling the request |
+| `user_agent`, `referer` | Request headers |
+| `s3_request_ids` | Request IDs returned by S3 for the requests made while handling this request, if any. Useful when correlating with the S3 provider's logs |
+| `panic` | The panic value, if the handler panicked (logged at `error` level) |
+
+Requests to `/health` are logged at `debug` level to reduce noise.
 
 ## Storage
 

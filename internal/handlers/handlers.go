@@ -169,7 +169,7 @@ func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 			id = requestid.New()
 		}
 		w.Header().Set(requestid.Header, id)
-		r = r.WithContext(requestid.WithID(r.Context(), id))
+		r = r.WithContext(storage.WithRequestIDs(requestid.WithID(r.Context(), id)))
 
 		body := &countingBody{ReadCloser: r.Body}
 		if r.Body != nil && r.Body != http.NoBody {
@@ -206,6 +206,9 @@ func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 				slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000),
 				slog.String("user_agent", r.UserAgent()),
 				slog.String("referer", r.Referer()),
+			}
+			if ids := storage.RequestIDs(r.Context()); len(ids) > 0 {
+				attrs = append(attrs, slog.Any("s3_request_ids", ids))
 			}
 			if p != nil {
 				attrs = append(attrs, slog.Any("panic", p))

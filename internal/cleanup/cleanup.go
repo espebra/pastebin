@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/espebra/pastebin/internal/metrics"
 	"github.com/espebra/pastebin/internal/paste"
 	"github.com/espebra/pastebin/internal/storage"
 )
@@ -46,6 +47,7 @@ func (c *Cleaner) Start(ctx context.Context) {
 
 func (c *Cleaner) cleanup(ctx context.Context) {
 	slog.Debug("running cleanup")
+	start := time.Now()
 
 	var deleted int
 	err := c.storage.ForEachMeta(ctx, func(meta *paste.Meta) error {
@@ -55,13 +57,19 @@ func (c *Cleaner) cleanup(ctx context.Context) {
 				return nil // Continue to next item
 			}
 			deleted++
+			metrics.PastesDeleted.WithLabelValues("expired").Inc()
 			slog.Info("deleted expired paste", "checksum", meta.Checksum)
 		}
 		return nil
 	})
 
+	metrics.CleanupDuration.Observe(time.Since(start).Seconds())
 	if err != nil {
+		metrics.CleanupRuns.WithLabelValues("error").Inc()
 		slog.Error("failed during cleanup iteration", "error", err)
+	} else {
+		metrics.CleanupRuns.WithLabelValues("success").Inc()
+		metrics.CleanupLastSuccess.SetToCurrentTime()
 	}
 
 	slog.Info("cleanup complete", "deleted", deleted)

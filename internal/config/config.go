@@ -25,6 +25,8 @@ type Config struct {
 	LogLevel        string
 	SecureCookies   bool
 	TrustedProxies  []netip.Prefix
+	MetricsHost     string
+	MetricsPort     int
 }
 
 func Load() (*Config, error) {
@@ -43,6 +45,12 @@ func Load() (*Config, error) {
 		LogFormat:       getEnv("PASTEBIN_LOG_FORMAT", "text"),
 		LogLevel:        getEnv("PASTEBIN_LOG_LEVEL", "info"),
 		SecureCookies:   getEnvBool("PASTEBIN_SECURE_COOKIES", false),
+		MetricsPort:     getEnvInt("PASTEBIN_METRICS_PORT", 0), // 0 disables metrics
+	}
+	cfg.MetricsHost = getEnv("PASTEBIN_METRICS_HOST", cfg.Host)
+
+	if cfg.MetricsPort != 0 && cfg.MetricsHost == cfg.Host && cfg.MetricsPort == cfg.Port {
+		return nil, fmt.Errorf("PASTEBIN_METRICS_PORT must differ from PASTEBIN_PORT")
 	}
 
 	if cfg.S3Bucket == "" {

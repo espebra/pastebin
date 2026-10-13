@@ -16,6 +16,7 @@ import (
 	"github.com/espebra/pastebin/internal/cleanup"
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/handlers"
+	"github.com/espebra/pastebin/internal/metrics"
 	"github.com/espebra/pastebin/internal/requestid"
 	"github.com/espebra/pastebin/internal/storage"
 	"github.com/espebra/pastebin/internal/version"
@@ -54,6 +55,7 @@ func run() error {
 	// Log version information at startup
 	build := version.Get()
 	slog.Info("starting pastebin", "version", build.Version, "commit", build.Commitish())
+	metrics.SetBuildInfo(build.Version, build.Commitish())
 
 	// Log configuration (without secrets)
 	slog.Info("configuration loaded",
@@ -67,6 +69,8 @@ func run() error {
 		"max_paste_size", cfg.MaxPasteSize,
 		"default_ttl", cfg.DefaultTTL.String(),
 		"trusted_proxies", cfg.TrustedProxiesString(),
+		"metrics_host", cfg.MetricsHost,
+		"metrics_port", cfg.MetricsPort,
 	)
 
 	// Initialize S3 storage
@@ -111,6 +115,22 @@ func run() error {
 		ReadHeaderTimeout: 2 * time.Second,
 	}
 
+	// Create metrics server, served on its own listener so that it can be
+	// kept away from public traffic
+	var metricsSrv *http.Server
+	if cfg.MetricsPort != 0 {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("GET /metrics", metrics.Handler())
+		metricsSrv = &http.Server{
+			Addr:              fmt.Sprintf("%s:%d", cfg.MetricsHost, cfg.MetricsPort),
+			Handler:           metricsMux,
+			ReadTimeout:       10 * time.Second,
+			WriteTimeout:      10 * time.Second,
+			IdleTimeout:       60 * time.Second,
+			ReadHeaderTimeout: 2 * time.Second,
+		}
+	}
+
 	// Start cleanup goroutine
 	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
 	defer cleanupCancel()
@@ -122,13 +142,22 @@ func run() error {
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
 	// Start server in goroutine
-	serverErr := make(chan error, 1)
+	serverErr := make(chan error, 2)
 	go func() {
 		slog.Info("starting server", "address", addr)
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 			serverErr <- err
 		}
 	}()
+
+	if metricsSrv != nil {
+		go func() {
+			slog.Info("starting metrics server", "address", metricsSrv.Addr)
+			if err := metricsSrv.ListenAndServe(); err != http.ErrServerClosed {
+				serverErr <- fmt.Errorf("metrics server: %w", err)
+			}
+		}()
+	}
 
 	// Wait for shutdown signal or server error
 	select {
@@ -144,6 +173,11 @@ func run() error {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		return fmt.Errorf("shutdown error: %w", err)
+	}
+	if metricsSrv != nil {
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("metrics server shutdown error: %w", err)
+		}
 	}
 
 	slog.Info("server stopped")

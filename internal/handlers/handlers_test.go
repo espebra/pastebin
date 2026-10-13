@@ -15,8 +15,12 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/csrf"
+	"github.com/espebra/pastebin/internal/metrics"
 	"github.com/espebra/pastebin/internal/requestid"
 	"github.com/espebra/pastebin/internal/storage"
 )
@@ -682,6 +686,60 @@ func TestAccessLog_NoS3RequestIDs(t *testing.T) {
 	entries := parseLogLines(t, buf)
 	if _, ok := entries[0]["s3_request_ids"]; ok {
 		t.Errorf("expected no s3_request_ids attribute, got %v", entries[0]["s3_request_ids"])
+	}
+}
+
+func TestRouteLabel(t *testing.T) {
+	tests := []struct {
+		pattern string
+		want    string
+	}{
+		{"", "other"},
+		{"GET /{checksum}", "/{checksum}"},
+		{"GET /{$}", "/{$}"},
+		{"/static/", "/static/"},
+		{"GET example.com/health", "/health"},
+	}
+	for _, tt := range tests {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		r.Pattern = tt.pattern
+		if got := routeLabel(r); got != tt.want {
+			t.Errorf("routeLabel(%q) = %q, want %q", tt.pattern, got, tt.want)
+		}
+	}
+}
+
+func counterValue(t *testing.T, c prometheus.Counter) float64 {
+	t.Helper()
+	var m dto.Metric
+	if err := c.Write(&m); err != nil {
+		t.Fatalf("failed to read counter: %v", err)
+	}
+	return m.GetCounter().GetValue()
+}
+
+func TestAccessLog_HTTPMetrics(t *testing.T) {
+	captureLogs(t, slog.LevelInfo)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{checksum}", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	})
+	handler := accessLog(nil, mux)
+
+	matched := metrics.HTTPRequests.WithLabelValues(http.MethodGet, "/{checksum}", "404")
+	unmatched := metrics.HTTPRequests.WithLabelValues(http.MethodPost, "other", "405")
+	beforeMatched, beforeUnmatched := counterValue(t, matched), counterValue(t, unmatched)
+
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/abc123", nil))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/def456", nil))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/abc123", nil))
+
+	if got := counterValue(t, matched) - beforeMatched; got != 2 {
+		t.Errorf("expected 2 requests counted for /{checksum}, got %v", got)
+	}
+	if got := counterValue(t, unmatched) - beforeUnmatched; got != 1 {
+		t.Errorf("expected 1 unmatched request counted, got %v", got)
 	}
 }
 

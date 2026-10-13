@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"net/http"
 	"sync"
 )
 
@@ -35,27 +34,13 @@ func RequestIDs(ctx context.Context) []string {
 	return append([]string(nil), c.ids...)
 }
 
-// httpDoer is the HTTP client interface used by the AWS SDK
-type httpDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-// requestIDClient records the S3 request ID of each response in the
-// collector carried by the request context, if any
-type requestIDClient struct {
-	next httpDoer
-}
-
-func (c requestIDClient) Do(req *http.Request) (*http.Response, error) {
-	resp, err := c.next.Do(req)
-	if resp != nil {
-		if id := resp.Header.Get(requestIDHeader); id != "" {
-			if col, ok := req.Context().Value(requestIDsKey{}).(*requestIDs); ok {
-				col.mu.Lock()
-				col.ids = append(col.ids, id)
-				col.mu.Unlock()
-			}
-		}
+// addRequestID records id in the collector carried by ctx, if any
+func addRequestID(ctx context.Context, id string) {
+	c, ok := ctx.Value(requestIDsKey{}).(*requestIDs)
+	if !ok {
+		return
 	}
-	return resp, err
+	c.mu.Lock()
+	c.ids = append(c.ids, id)
+	c.mu.Unlock()
 }

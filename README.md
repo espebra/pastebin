@@ -120,6 +120,8 @@ The service is configured using environment variables:
 | `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |
 | `PASTEBIN_SECURE_COOKIES` | Set Secure flag on cookies (enable for HTTPS) | `false` |
 | `PASTEBIN_TRUSTED_PROXIES` | Comma separated IPs/CIDRs of reverse proxies whose `X-Forwarded-For` header is trusted when logging the client IP | (none) |
+| `PASTEBIN_METRICS_PORT` | Port for the Prometheus `/metrics` listener. `0` disables it | `0` (disabled) |
+| `PASTEBIN_METRICS_HOST` | Listen host for the metrics listener | value of `PASTEBIN_HOST` |
 
 ## Check current version
 
@@ -139,6 +141,8 @@ The service is configured using environment variables:
 | POST | `/delete/{checksum}` | Delete a paste |
 | GET | `/health` | Health check endpoint |
 
+Prometheus metrics are served on a separate port, see [Metrics](#metrics).
+
 ## Health Check
 
 The `/health` endpoint returns `200 OK` with body `OK` when the service is running. This can be used for load balancer health checks and monitoring.
@@ -147,6 +151,123 @@ The `/health` endpoint returns `200 OK` with body `OK` when the service is runni
 curl http://localhost:8080/health
 # OK
 ```
+
+## Metrics
+
+When `PASTEBIN_METRICS_PORT` is set, Prometheus metrics are served at
+`/metrics` on a separate listener. The metrics are never served on the main
+port, so they are not exposed to the public through the same address as the
+pastes.
+
+```bash
+PASTEBIN_METRICS_PORT=9091 ./pastebin
+curl http://localhost:9091/metrics
+```
+
+| Metric | Description |
+|--------|-------------|
+| `pastebin_build_info{version,commit}` | Build information, always `1` |
+| `pastebin_http_requests_total{method,route,code}` | HTTP requests handled. `route` is the matched route pattern, such as `/{checksum}` |
+| `pastebin_http_request_duration_seconds{method,route}` | HTTP request latency histogram |
+| `pastebin_s3_requests_total{operation,code}` | Requests made to S3, including retries. `code` is `error` when no response was received |
+| `pastebin_s3_request_duration_seconds{operation}` | S3 request latency histogram |
+| `pastebin_pastes_created_total` | Pastes created |
+| `pastebin_pastes_deleted_total{reason}` | Pastes deleted, by `manual` or `expired` |
+| `pastebin_cleanup_runs_total{result}` | Cleanup runs, by `success` or `error` |
+| `pastebin_cleanup_duration_seconds` | Cleanup run duration histogram |
+| `pastebin_cleanup_last_success_timestamp_seconds` | When a cleanup run last completed without error |
+
+Go runtime (`go_*`) and process (`process_*`) metrics are included as well.
+
+### Kubernetes
+
+Prometheus scrapes pods directly on their pod IP, so the metrics port only
+has to be reachable inside the cluster. To keep it away from the internet:
+
+1. Listen on all interfaces inside the pod and name the port, but never
+   route it from the Ingress, Gateway or a `LoadBalancer`/`NodePort` Service.
+   The public Service should only contain the `http` port.
+2. Let Prometheus find the pods with a `PodMonitor` (Prometheus Operator) or
+   with scrape annotations, rather than adding the port to a public Service.
+3. Add a `NetworkPolicy` so that only Prometheus can connect to the metrics
+   port, even from inside the cluster.
+
+```yaml
+# Deployment (excerpt)
+spec:
+  template:
+    metadata:
+      labels:
+        app: pastebin
+    spec:
+      containers:
+        - name: pastebin
+          env:
+            - name: PASTEBIN_HOST
+              value: "0.0.0.0"
+            - name: PASTEBIN_METRICS_PORT
+              value: "9091"
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9091
+---
+# Public Service: the metrics port is deliberately left out
+apiVersion: v1
+kind: Service
+metadata:
+  name: pastebin
+spec:
+  selector:
+    app: pastebin
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Prometheus Operator: scrape the pods' metrics port directly
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: pastebin
+spec:
+  selector:
+    matchLabels:
+      app: pastebin
+  podMetricsEndpoints:
+    - port: metrics
+---
+# Only allow Prometheus to reach the metrics port
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: pastebin
+spec:
+  podSelector:
+    matchLabels:
+      app: pastebin
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        - port: http
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: metrics
+```
+
+Adjust the namespace and labels in the `NetworkPolicy` to match your
+Prometheus installation. Without the Prometheus Operator, add the
+`prometheus.io/scrape: "true"`, `prometheus.io/port: "9091"` and
+`prometheus.io/path: /metrics` pod annotations instead of the `PodMonitor`,
+if your scrape configuration uses them.
 
 ## Storage
 

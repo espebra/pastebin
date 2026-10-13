@@ -11,11 +11,13 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/espebra/pastebin/internal/config"
 	"github.com/espebra/pastebin/internal/csrf"
+	"github.com/espebra/pastebin/internal/metrics"
 	"github.com/espebra/pastebin/internal/paste"
 	"github.com/espebra/pastebin/internal/requestid"
 	"github.com/espebra/pastebin/internal/storage"
@@ -179,6 +181,8 @@ func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 
 		defer func() {
+			duration := time.Since(start)
+
 			// Log health checks at debug level to reduce noise
 			level := slog.LevelInfo
 			if r.URL.Path == "/health" {
@@ -203,7 +207,7 @@ func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 				slog.Int("status", rw.statusCode),
 				slog.Int64("bytes_in", body.bytesRead),
 				slog.Int64("bytes_out", rw.bytesWritten),
-				slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000),
+				slog.Float64("duration_ms", float64(duration.Microseconds())/1000),
 				slog.String("user_agent", r.UserAgent()),
 				slog.String("referer", r.Referer()),
 			}
@@ -215,6 +219,10 @@ func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 			}
 			slog.LogAttrs(r.Context(), level, "request", attrs...)
 
+			route := routeLabel(r)
+			metrics.HTTPRequests.WithLabelValues(r.Method, route, strconv.Itoa(rw.statusCode)).Inc()
+			metrics.HTTPRequestDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
+
 			if p != nil {
 				panic(p)
 			}
@@ -222,6 +230,22 @@ func accessLog(trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 
 		next.ServeHTTP(rw, r)
 	})
+}
+
+// routeLabel returns the route pattern that matched the request, such as
+// "/{checksum}", so that metrics are not labelled with unbounded paths.
+// ServeMux records the pattern on the request it dispatches. Requests that
+// matched no route, such as 405 responses, are labelled "other".
+func routeLabel(r *http.Request) string {
+	if r.Pattern == "" {
+		return "other"
+	}
+	// Strip the method and host from patterns like "GET /{checksum}"
+	route := r.Pattern
+	if i := strings.Index(route, "/"); i >= 0 {
+		route = route[i:]
+	}
+	return route
 }
 
 // clientIP returns the IP address of the client. The X-Forwarded-For header
@@ -369,6 +393,7 @@ func (h *Handler) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metrics.PastesCreated.Inc()
 	slog.InfoContext(r.Context(), "paste created", "checksum", p.Checksum, "size", meta.Size, "ttl", ttl.String())
 	http.Redirect(w, r, "/"+p.Checksum, http.StatusSeeOther)
 }
@@ -411,7 +436,9 @@ func (h *Handler) handleView(w http.ResponseWriter, r *http.Request) {
 	// Check if expired
 	if meta.IsExpired() {
 		// Delete expired paste
-		_ = h.storage.Delete(ctx, checksum)
+		if err := h.storage.Delete(ctx, checksum); err == nil {
+			metrics.PastesDeleted.WithLabelValues("expired").Inc()
+		}
 		slog.InfoContext(r.Context(), "deleted expired paste on access", "checksum", checksum)
 		data := PasteData{
 			BuildInfo: h.build,
@@ -461,7 +488,9 @@ func (h *Handler) handleRaw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if meta.IsExpired() {
-		_ = h.storage.Delete(ctx, checksum)
+		if err := h.storage.Delete(ctx, checksum); err == nil {
+			metrics.PastesDeleted.WithLabelValues("expired").Inc()
+		}
 		http.Error(w, "Paste has expired", http.StatusGone)
 		return
 	}
@@ -507,6 +536,7 @@ func (h *Handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metrics.PastesDeleted.WithLabelValues("manual").Inc()
 	slog.InfoContext(r.Context(), "paste deleted", "checksum", checksum)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

@@ -48,7 +48,7 @@ func New(ctx context.Context, endpoint, region, bucket, accessKey, secretKey str
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(endpointURL)
 		o.UsePathStyle = true // Required for MinIO and most S3-compatible services
-		o.HTTPClient = requestIDClient{next: o.HTTPClient}
+		o.HTTPClient = instrumentedClient{next: o.HTTPClient}
 	})
 
 	storage := &S3Storage{

@@ -58,6 +58,47 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.SecureCookies {
 		t.Error("expected SecureCookies to default to false")
 	}
+
+	if cfg.MetricsPort != 0 {
+		t.Errorf("expected metrics to be disabled by default, got port %d", cfg.MetricsPort)
+	}
+
+	if cfg.MetricsHost != cfg.Host {
+		t.Errorf("expected metrics host to default to %s, got %s", cfg.Host, cfg.MetricsHost)
+	}
+}
+
+func TestLoad_Metrics(t *testing.T) {
+	t.Setenv("PASTEBIN_S3_BUCKET", "test-bucket")
+	t.Setenv("PASTEBIN_HOST", "0.0.0.0")
+	t.Setenv("PASTEBIN_METRICS_PORT", "9091")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.MetricsHost != "0.0.0.0" || cfg.MetricsPort != 9091 {
+		t.Errorf("expected metrics on 0.0.0.0:9091, got %s:%d", cfg.MetricsHost, cfg.MetricsPort)
+	}
+
+	t.Setenv("PASTEBIN_METRICS_HOST", "10.1.2.3")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.MetricsHost != "10.1.2.3" {
+		t.Errorf("expected metrics host 10.1.2.3, got %s", cfg.MetricsHost)
+	}
+}
+
+func TestLoad_MetricsPortConflict(t *testing.T) {
+	t.Setenv("PASTEBIN_S3_BUCKET", "test-bucket")
+	t.Setenv("PASTEBIN_PORT", "8080")
+	t.Setenv("PASTEBIN_METRICS_PORT", "8080")
+
+	if _, err := Load(); err == nil {
+		t.Error("expected error when metrics port equals the main port")
+	}
 }
 
 func TestLoad_CustomValues(t *testing.T) {

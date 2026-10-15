@@ -113,7 +113,7 @@ The service is configured using environment variables:
 | `PASTEBIN_HOST` | Listen host | `127.0.0.1` |
 | `PASTEBIN_PORT` | Listen port | `8080` |
 | `PASTEBIN_MAX_PASTE_SIZE` | Maximum paste size in bytes | `1048576` (1MB) |
-| `PASTEBIN_DEFAULT_TTL` | Default paste TTL | `8760h` (1 year) |
+| `PASTEBIN_DEFAULT_TTL` | Default paste TTL | `720h` (1 month) |
 | `PASTEBIN_CLEANUP_INTERVAL` | Interval between cleanup runs | `1h` |
 | `PASTEBIN_LOG_FORMAT` | Log format (`text` or `json`) | `text` |
 | `PASTEBIN_LOG_LEVEL` | Log level (`debug`, `info`, `warn`, `error`) | `info` |

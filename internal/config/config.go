@@ -41,7 +41,7 @@ func Load() (*Config, error) {
 		AWSSecretKey:    os.Getenv("PASTEBIN_S3_SECRET_KEY"),
 		CleanupInterval: getEnvDuration("PASTEBIN_CLEANUP_INTERVAL", time.Hour),
 		MaxPasteSize:    getEnvInt64("PASTEBIN_MAX_PASTE_SIZE", 1024*1024), // 1MB
-		DefaultTTL:      getEnvDuration("PASTEBIN_DEFAULT_TTL", 365*24*time.Hour),
+		DefaultTTL:      getEnvDuration("PASTEBIN_DEFAULT_TTL", 30*24*time.Hour),
 		LogFormat:       getEnv("PASTEBIN_LOG_FORMAT", "text"),
 		LogLevel:        getEnv("PASTEBIN_LOG_LEVEL", "info"),
 		SecureCookies:   getEnvBool("PASTEBIN_SECURE_COOKIES", false),

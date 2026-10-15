@@ -51,8 +51,8 @@ func TestLoad_Defaults(t *testing.T) {
 		t.Errorf("expected default max paste size 1MB, got %d", cfg.MaxPasteSize)
 	}
 
-	if cfg.DefaultTTL != 365*24*time.Hour {
-		t.Errorf("expected default TTL 1 year, got %v", cfg.DefaultTTL)
+	if cfg.DefaultTTL != 30*24*time.Hour {
+		t.Errorf("expected default TTL 1 month, got %v", cfg.DefaultTTL)
 	}
 
 	if cfg.SecureCookies {

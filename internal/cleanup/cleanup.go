@@ -49,7 +49,7 @@ func (c *Cleaner) cleanup(ctx context.Context) {
 	slog.Debug("running cleanup")
 	start := time.Now()
 
-	var deleted int
+	var deleted, available int
 	err := c.storage.ForEachMeta(ctx, func(meta *paste.Meta) error {
 		if meta.IsExpired() {
 			if err := c.storage.Delete(ctx, meta.Checksum); err != nil {
@@ -59,7 +59,9 @@ func (c *Cleaner) cleanup(ctx context.Context) {
 			deleted++
 			metrics.PastesDeleted.WithLabelValues("expired").Inc()
 			slog.Info("deleted expired paste", "checksum", meta.Checksum)
+			return nil
 		}
+		available++
 		return nil
 	})
 
@@ -70,7 +72,9 @@ func (c *Cleaner) cleanup(ctx context.Context) {
 	} else {
 		metrics.CleanupRuns.WithLabelValues("success").Inc()
 		metrics.CleanupLastSuccess.SetToCurrentTime()
+		// Only a complete traversal gives a full count
+		metrics.PastesAvailable.Set(float64(available))
 	}
 
-	slog.Info("cleanup complete", "deleted", deleted)
+	slog.Info("cleanup complete", "deleted", deleted, "available", available)
 }

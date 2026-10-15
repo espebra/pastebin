@@ -70,6 +70,14 @@ var (
 		Help:      "Total number of pastes deleted, by reason (manual, expired).",
 	}, []string{"reason"})
 
+	// PastesAvailable records the number of unexpired pastes found by the
+	// last successful cleanup run
+	PastesAvailable = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "pastes_available",
+		Help:      "Number of unexpired pastes, as counted by the last successful cleanup run.",
+	})
+
 	// CleanupRuns counts completed cleanup runs, by result
 	CleanupRuns = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
@@ -107,6 +115,7 @@ func init() {
 		S3RequestDuration,
 		PastesCreated,
 		PastesDeleted,
+		PastesAvailable,
 		CleanupRuns,
 		CleanupDuration,
 		CleanupLastSuccess,

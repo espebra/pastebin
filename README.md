@@ -174,6 +174,7 @@ curl http://localhost:9091/metrics
 | `pastebin_s3_request_duration_seconds{operation}` | S3 request latency histogram |
 | `pastebin_pastes_created_total` | Pastes created |
 | `pastebin_pastes_deleted_total{reason}` | Pastes deleted, by `manual` or `expired` |
+| `pastebin_pastes_available` | Unexpired pastes, as counted by the last successful cleanup run |
 | `pastebin_cleanup_runs_total{result}` | Cleanup runs, by `success` or `error` |
 | `pastebin_cleanup_duration_seconds` | Cleanup run duration histogram |
 | `pastebin_cleanup_last_success_timestamp_seconds` | When a cleanup run last completed without error |

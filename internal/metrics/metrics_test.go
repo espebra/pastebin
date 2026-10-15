@@ -23,6 +23,7 @@ func TestHandler(t *testing.T) {
 		`pastebin_build_info{commit="abc1234",version="v1.2.3"} 1`,
 		`pastebin_pastes_deleted_total{reason="expired"} 0`,
 		`pastebin_cleanup_runs_total{result="success"} 0`,
+		"pastebin_pastes_available 0",
 		"go_goroutines",
 	} {
 		if !strings.Contains(string(body), want) {

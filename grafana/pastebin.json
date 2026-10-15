@@ -1379,6 +1379,70 @@
       }
     },
     {
+      "type": "timeseries",
+      "title": "Available pastes",
+      "description": "Unexpired pastes, as counted by the last successful cleanup run. The value is refreshed once per cleanup interval. Instances share a bucket, so the highest value across instances is shown.",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "max(pastebin_pastes_available{job=~\"$job\", instance=~\"$instance\"})",
+          "legendFormat": "available",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisSoftMin": 0,
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 27,
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      }
+    },
+    {
       "type": "row",
       "title": "Runtime",
       "collapsed": false,
@@ -1387,7 +1451,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "panels": []
     },
@@ -1456,7 +1520,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 41
+        "y": 49
       },
       "datasource": {
         "type": "prometheus",
@@ -1519,7 +1583,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 41
+        "y": 49
       },
       "datasource": {
         "type": "prometheus",
@@ -1582,7 +1646,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 41
+        "y": 49
       },
       "datasource": {
         "type": "prometheus",
@@ -1642,7 +1706,7 @@
         "h": 6,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 57
       },
       "datasource": {
         "type": "prometheus",

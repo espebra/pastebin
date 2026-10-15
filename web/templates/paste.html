@@ -207,6 +207,11 @@
 
         .spacer { flex: 1; }
 
+        .note {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
         button, .btn {
             padding: 8px 16px;
             font-size: 14px;
@@ -318,6 +323,7 @@
                     <option value="{{.Duration}}" {{if .IsDefault}}selected{{end}}>{{.Label}}</option>
                     {{end}}
                 </select>
+                <small class="note">Do not put secrets in the paste</small>
                 <button type="submit" class="primary" id="save-btn" disabled>Save as new</button>
                 <span class="spacer"></span>
                 <button type="button" class="danger" onclick="deletePaste()">Delete</button>

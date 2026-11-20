@@ -328,6 +328,23 @@ make test
 make fuzz
 ```
 
+The integration tests run pastebin against a real S3 server. Start
+[Stupid Simple S3](https://github.com/espebra/stupid-simple-s3) with the test
+credentials, then run them:
+
+```bash
+docker run -d --rm -p 5553:5553 \
+  -e STUPID_RW_ACCESS_KEY=pastebin-test \
+  -e STUPID_RW_SECRET_KEY=pastebin-test-secret \
+  ghcr.io/espebra/stupid-simple-s3:latest
+
+make test-integration
+```
+
+Each test creates its own bucket. Set `PASTEBIN_TEST_S3_ENDPOINT`,
+`PASTEBIN_TEST_S3_ACCESS_KEY` and `PASTEBIN_TEST_S3_SECRET_KEY` to use
+another server.
+
 ### Releasing
 
 Releases are automated via GitHub Actions. To create a new release:

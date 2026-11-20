@@ -43,7 +43,10 @@ fuzz:
 	$(GOTEST) -fuzz=FuzzIsValidChecksum -fuzztime=30s ./internal/handlers
 	$(GOTEST) -fuzz=FuzzComputeChecksum -fuzztime=30s ./internal/paste
 	$(GOTEST) -fuzz=FuzzNewPaste -fuzztime=30s ./internal/paste
-	$(GOTEST) -fuzz=FuzzTokenComparison -fuzztime=30s ./internal/csrf
+	$(GOTEST) -fuzz=FuzzPasteRoundTrip -fuzztime=30s ./internal/handlers
+	$(GOTEST) -fuzz=FuzzClientIP -fuzztime=30s ./internal/handlers
+	$(GOTEST) -fuzz=FuzzValidate -fuzztime=30s ./internal/csrf
+	$(GOTEST) -fuzz=FuzzValid -fuzztime=30s ./internal/requestid
 
 lint:
 	golangci-lint run ./...

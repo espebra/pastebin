@@ -136,7 +136,10 @@ jobs:
           go test -fuzz=FuzzIsValidChecksum -fuzztime=30s ./internal/handlers
           go test -fuzz=FuzzComputeChecksum -fuzztime=30s ./internal/paste
           go test -fuzz=FuzzNewPaste -fuzztime=30s ./internal/paste
-          go test -fuzz=FuzzTokenComparison -fuzztime=30s ./internal/csrf
+          go test -fuzz=FuzzPasteRoundTrip -fuzztime=30s ./internal/handlers
+          go test -fuzz=FuzzClientIP -fuzztime=30s ./internal/handlers
+          go test -fuzz=FuzzValidate -fuzztime=30s ./internal/csrf
+          go test -fuzz=FuzzValid -fuzztime=30s ./internal/requestid
 
   build:
     name: Build

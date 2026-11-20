@@ -40,10 +40,20 @@ func isValidChecksum(checksum string) bool {
 	return err == nil
 }
 
+// Storage is the paste storage used by the handlers. It is satisfied by
+// *storage.S3Storage, and lets tests use an in-memory implementation.
+type Storage interface {
+	Store(ctx context.Context, p *paste.Paste, meta *paste.Meta) error
+	Get(ctx context.Context, checksum string) (*paste.Paste, *paste.Meta, error)
+	Delete(ctx context.Context, checksum string) error
+}
+
+var _ Storage = (*storage.S3Storage)(nil)
+
 // Handler holds dependencies for HTTP handlers
 type Handler struct {
 	cfg       *config.Config
-	storage   *storage.S3Storage
+	storage   Storage
 	templates *template.Template
 	build     BuildInfo
 }
@@ -77,7 +87,7 @@ type PasteData struct {
 }
 
 // New creates a new Handler
-func New(cfg *config.Config, storage *storage.S3Storage, templateFS fs.FS) (*Handler, error) {
+func New(cfg *config.Config, storage Storage, templateFS fs.FS) (*Handler, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)

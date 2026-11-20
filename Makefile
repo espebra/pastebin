@@ -1,4 +1,4 @@
-.PHONY: build run test fuzz lint clean docker package-deb package-rpm packages
+.PHONY: build run test test-integration fuzz lint clean docker package-deb package-rpm packages
 
 BINARY_NAME=pastebin
 BUILD_DIR=bin
@@ -26,6 +26,18 @@ run: build
 
 test:
 	$(GOTEST) -v -race -cover ./...
+
+# Integration tests need a running S3 server, such as Stupid Simple S3, see
+# the README. Each test creates its own bucket.
+PASTEBIN_TEST_S3_ENDPOINT ?= 127.0.0.1:5553
+PASTEBIN_TEST_S3_ACCESS_KEY ?= pastebin-test
+PASTEBIN_TEST_S3_SECRET_KEY ?= pastebin-test-secret
+
+test-integration:
+	PASTEBIN_TEST_S3_ENDPOINT=$(PASTEBIN_TEST_S3_ENDPOINT) \
+	PASTEBIN_TEST_S3_ACCESS_KEY=$(PASTEBIN_TEST_S3_ACCESS_KEY) \
+	PASTEBIN_TEST_S3_SECRET_KEY=$(PASTEBIN_TEST_S3_SECRET_KEY) \
+	$(GOTEST) -v -race -count=1 -tags integration ./internal/integration
 
 fuzz:
 	$(GOTEST) -fuzz=FuzzIsValidChecksum -fuzztime=30s ./internal/handlers

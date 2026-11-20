@@ -83,6 +83,42 @@ jobs:
           files: coverage.out
           fail_ci_if_error: false
 
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      s3:
+        image: ghcr.io/espebra/stupid-simple-s3:2.4.2
+        ports:
+          - 5553:5553
+        env:
+          STUPID_RW_ACCESS_KEY: pastebin-test
+          STUPID_RW_SECRET_KEY: pastebin-test-secret
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Wait for Stupid Simple S3
+        run: |
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://127.0.0.1:5553/ && exit 0
+            sleep 1
+          done
+          echo "Stupid Simple S3 did not start" >&2
+          exit 1
+
+      - name: Run integration tests
+        env:
+          PASTEBIN_TEST_S3_ENDPOINT: 127.0.0.1:5553
+          PASTEBIN_TEST_S3_ACCESS_KEY: pastebin-test
+          PASTEBIN_TEST_S3_SECRET_KEY: pastebin-test-secret
+        run: go test -v -race -count=1 -tags integration ./internal/integration
+
   fuzz:
     name: Fuzz Tests
     runs-on: ubuntu-latest
@@ -105,7 +141,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [vendor-check, lint, vulncheck, test, fuzz]
+    needs: [vendor-check, lint, vulncheck, test, integration, fuzz]
     strategy:
       matrix:
         include:
